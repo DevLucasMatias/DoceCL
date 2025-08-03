@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Brigadeiros Gourmet - Painel de Vendas</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1>Brigadeiros Gourmet</h1>
+            <p>Painel de vendas e controle</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <aside class="sidebar">
+            <h2>Nossos Doces</h2>
+            <div id="produtos" class="produtos-grid"></div>
+        </aside>
+
+        <main class="content">
+            <nav class="tabs">
+                <button class="tab active" data-tab="venda">Nova Venda</button>
+                <button class="tab" data-tab="controle">Histórico de Vendas</button>
+            </nav>
+
+            <section id="venda" class="tab-content active">
+                <h2>Detalhes da Venda Atual</h2>
+                <div id="venda-atual" class="venda-atual-display"></div>
+                <form id="form-venda" class="form">
+                    <h3>Informações do Cliente</h3>
+                    <input type="text" id="nome" placeholder="Nome do comprador" required />
+                    <input type="tel" id="telefone" placeholder="Telefone (opcional)" />
+                    <input type="date" id="data" required />
+                    <button type="submit">Finalizar Venda</button>
+                </form>
+            </section>
+
+            <section id="controle" class="tab-content">
+                <h2>Controle de Vendas Realizadas</h2>
+                <div class="filtros">
+                    <input type="text" id="filtro-cliente" placeholder="Filtrar por cliente" />
+                    <input type="date" id="filtro-data-inicio" />
+                    <input type="date" id="filtro-data-fim" />
+                    <select id="filtro-status">
+                        <option value="">Todos os Status</option>
+                        <option value="pago">Pago</option>
+                        <option value="nao-pago">Não Pago</option>
+                    </select>
+                    <input type="text" id="filtro-produto" placeholder="Filtrar por produto" />
+                    <button id="toggle-view" class="botao-toggle">Alternar para Visão Agrupada</button>
+                    <button id="export-data" class="botao-export">Exportar Dados</button>
+                    <input type="file" id="import-data" accept=".json" style="display: none;" />
+                    <button id="import-data-btn" class="botao-import">Importar Dados</button>
+                </div>
+
+                <div class="tabela-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Telefone</th>
+                                <th>Produto</th>
+                                <th>Qtd</th>
+                                <th>Total</th>
+                                <th>Data</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                                <th>Remover</th>
+                            </tr>
+                        </thead>
+                        <tbody id="compradores"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal para Confirmação de Venda -->
+    <div id="modal-confirmacao" class="modal">
+        <div class="modal-content">
+            <h3>Confirmar Venda</h3>
+            <p>Confirme os detalhes da venda antes de finalizar:</p>
+            <div id="modal-venda-detalhes"></div>
+            <button id="confirmar-venda" class="botao-confirmar">Confirmar</button>
+            <button id="cancelar-venda" class="botao-cancelar">Cancelar</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
