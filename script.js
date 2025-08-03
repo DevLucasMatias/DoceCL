@@ -389,4 +389,4 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.filterDateEndInput.addEventListener('change', handleApplyFilters);
     DOM.filterStatusSelect.addEventListener('change', handleApplyFilters);
     DOM.filterProductInput.addEventListener('input', handleApplyFilters);
-});
+}); 
