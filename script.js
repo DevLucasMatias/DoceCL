@@ -1,7 +1,8 @@
 // --- Dados Iniciais ---
 const PRODUCTS = [
-    { id: 'brigadeiro-tradicional', nome: 'Brigadeiro Tradicional', preco: 2.50, imagem: 'doce.jpeg' },
-    // Adicione mais produtos conforme necessário
+    { id: 'brigadeiro-tradicional', nome: 'Brigadeiro Tradicional', preco: 2.50, imagem: 'Brigadeiro.jpg' },
+    // { id: 'brigadeiro-chocolate', nome: 'Brigadeiro de Chocolate', preco: 2.80, imagem: 'brigadeiro-chocolate.jpg' },
+    // { id: 'brigadeiro-leite-ninho', nome: 'Brigadeiro Leite Ninho', preco: 3.00, imagem: 'brigadeiro-leite-ninho.jpg' },
 ];
 
 let currentSale = [];
@@ -12,8 +13,8 @@ let isGroupedView = false;
 const DOM = {
     produtosDiv: document.getElementById('produtos'),
     formSale: document.getElementById('form-venda'),
-    compradoresTabela: document.getElementById('compradores'),
     vendaAtualDiv: document.getElementById('venda-atual'),
+    compradoresDiv: document.getElementById('compradores'),
     tabs: document.querySelectorAll('.tab'),
     tabContents: document.querySelectorAll('.tab-content'),
     filterClientInput: document.getElementById('filtro-cliente'),
@@ -33,7 +34,7 @@ const DOM = {
 };
 
 // --- Funções de Utilitário ---
-function saveToLocalStorage(key, data) {
+function saveData(key, data) {
     try {
         localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
@@ -41,7 +42,7 @@ function saveToLocalStorage(key, data) {
     }
 }
 
-function loadFromLocalStorage(key, defaultValue = []) {
+function loadData(key, defaultValue = []) {
     try {
         const data = localStorage.getItem(key);
         return data ? JSON.parse(data) : defaultValue;
@@ -53,127 +54,129 @@ function loadFromLocalStorage(key, defaultValue = []) {
 
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
-    const [year, month, day] = dateString.split('-');
-    return `${day}/${month}/${year}`;
+    return new Date(dateString).toLocaleDateString('pt-BR');
 }
 
-function exportToJSON() {
-    const dataStr = JSON.stringify(completedSales);
+function exportData() {
+    const dataStr = JSON.stringify(completedSales, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'vendas_brigadeiros.json';
+    a.download = `vendas_brigadeiros_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    alert('Dados exportados com sucesso!');
 }
 
-function importFromJSON(event) {
+function importData(event) {
     const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const importedData = JSON.parse(e.target.result);
-            completedSales = importedData;
-            saveToLocalStorage('compradores', completedSales);
-            updateSalesTable();
-            alert('Dados importados com sucesso!');
-        } catch (error) {
-            alert('Erro ao importar dados. Verifique o arquivo.');
-            console.error('Erro ao importar JSON:', error);
-        }
-    };
-    reader.readAsText(file);
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if (!Array.isArray(importedData)) throw new Error('Formato inválido');
+                completedSales = importedData;
+                saveData('sales', completedSales);
+                updateSalesTable();
+                alert('Dados importados com sucesso!');
+            } catch (error) {
+                alert('Erro ao importar dados. Verifique o arquivo.');
+                console.error('Erro ao importar JSON:', error);
+            }
+        };
+        reader.readAsText(file);
+    }
 }
 
 // --- Funções de UI ---
 function renderProducts() {
-    DOM.produtosDiv.innerHTML = '';
-    PRODUCTS.forEach(product => {
-        const card = document.createElement('div');
-        card.className = 'produto-card';
-        card.setAttribute('data-id', product.id);
-        card.innerHTML = `
+    DOM.produtosDiv.innerHTML = PRODUCTS.map(product => `
+        <div class="product-card" data-id="${product.id}">
             <img src="${product.imagem}" alt="${product.nome}" loading="lazy" />
             <h3>${product.nome}</h3>
             <p>R$ ${product.preco.toFixed(2)}</p>
-        `;
-        card.addEventListener('click', () => handleAddProductToCurrentSale(product));
-        DOM.produtosDiv.appendChild(card);
-    });
+        </div>
+    `).join('');
+    document.querySelectorAll('.product-card').forEach(card => 
+        card.addEventListener('click', () => addToSale(PRODUCTS.find(p => p.id === card.dataset.id)))
+    );
 }
 
-function renderCurrentSaleDisplay() {
-    if (currentSale.length === 0) {
-        DOM.vendaAtualDiv.innerHTML = '<p>Nenhum produto selecionado. Clique nos doces ao lado para adicionar!</p>';
+function renderCurrentSale() {
+    if (!currentSale.length) {
+        DOM.vendaAtualDiv.innerHTML = '<p>Nenhum produto selecionado. Adicione itens!</p>';
         return;
     }
-
-    DOM.vendaAtualDiv.innerHTML = currentSale.map((p, i) =>
-        `<div class="venda-item">
-            <span>${p.qtd}x ${p.nome} — R$ ${p.total.toFixed(2)}</span>
-            <button class="remover-btn" data-index="${i}" aria-label="Remover ${p.nome}">Remover</button>
-        </div>`
-    ).join('');
-
-    DOM.vendaAtualDiv.querySelectorAll('.remover-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const idx = parseInt(e.target.getAttribute('data-index'));
-            handleRemoveProductFromCurrentSale(idx);
-        });
-    });
+    DOM.vendaAtualDiv.innerHTML = currentSale.map((item, i) => `
+        <div class="order-item">
+            <span>${item.qtd}x ${item.nome} - R$ ${item.total.toFixed(2)}</span>
+            <button class="remover-btn" data-index="${i}" aria-label="Remover ${item.nome}">Remover</button>
+        </div>
+    `).join('');
+    document.querySelectorAll('.remover-btn').forEach(btn => 
+        btn.addEventListener('click', () => removeFromSale(parseInt(btn.dataset.index)))
+    );
 }
 
-function updateSalesTable(salesData = completedSales) {
-    DOM.compradoresTabela.innerHTML = '';
-    if (salesData.length === 0) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="9" style="text-align: center; padding: 20px; color: var(--text-dark);">Nenhuma venda registrada ainda.</td>`;
-        DOM.compradoresTabela.appendChild(tr);
+function updateSalesTable(sales = completedSales) {
+    DOM.compradoresDiv.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Telefone</th>
+                    <th>Produto</th>
+                    <th>Quantidade</th>
+                    <th>Total</th>
+                    <th>Data</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                    <th>Remover</th>
+                </tr>
+            </thead>
+            <tbody id="sales-body"></tbody>
+        </table>
+    `;
+    const tbody = document.getElementById('sales-body');
+    if (!sales.length) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">Nenhuma venda registrada.</td></tr>';
         return;
     }
 
     if (isGroupedView) {
-        // Agrupar por cliente
-        const groupedSales = {};
-        salesData.forEach(sale => {
-            if (!groupedSales[sale.nome]) {
-                groupedSales[sale.nome] = {
-                    telefone: sale.telefone,
-                    qtdTotal: 0,
-                    total: 0,
-                    datas: new Set(),
-                    status: sale.pago ? 'Pago' : 'Não Pago',
-                    produtos: [],
-                };
+        const grouped = {};
+        sales.forEach(sale => {
+            const key = sale.nome + (sale.telefone || '');
+            if (!grouped[key]) {
+                grouped[key] = { telefone: sale.telefone || 'N/A', qtdTotal: 0, total: 0, datas: new Set(), status: sale.pago, produtos: [] };
             }
-            groupedSales[sale.nome].qtdTotal += sale.qtd;
-            groupedSales[sale.nome].total += sale.total;
-            groupedSales[sale.nome].datas.add(sale.data);
-            groupedSales[sale.nome].produtos.push(sale.produto);
-            if (!sale.pago) groupedSales[sale.nome].status = 'Não Pago';
+            grouped[key].qtdTotal += sale.qtd;
+            grouped[key].total += sale.total;
+            grouped[key].datas.add(sale.data);
+            grouped[key].produtos.push(sale.produto);
+            if (!sale.pago) grouped[key].status = false;
         });
 
-        Object.entries(groupedSales).forEach(([nome, data]) => {
+        Object.values(grouped).forEach(data => {
             const tr = document.createElement('tr');
-            if (data.status === 'Não Pago') tr.classList.add('devedor');
+            if (!data.status) tr.classList.add('devedor');
             tr.innerHTML = `
-                <td>${nome}</td>
-                <td>${data.telefone || 'N/A'}</td>
+                <td>${data.produtos[0].split(',')[0]}</td>
+                <td>${data.telefone}</td>
                 <td>${data.produtos.join(', ')}</td>
                 <td>${data.qtdTotal}</td>
                 <td>R$ ${data.total.toFixed(2)}</td>
                 <td>${Array.from(data.datas).map(formatDate).join(', ')}</td>
-                <td class="${data.status === 'Pago' ? 'status-pago' : 'status-nao-pago'}">${data.status}</td>
+                <td class="${data.status ? 'status-pago' : 'status-nao-pago'}">${data.status ? 'Pago' : 'Não Pago'}</td>
                 <td>-</td>
                 <td>-</td>
             `;
-            DOM.compradoresTabela.appendChild(tr);
+            tbody.appendChild(tr);
         });
     } else {
-        // Visão detalhada
-        salesData.forEach((sale, index) => {
+        sales.forEach((sale, i) => {
             const tr = document.createElement('tr');
             if (!sale.pago) tr.classList.add('devedor');
             tr.innerHTML = `
@@ -184,209 +187,168 @@ function updateSalesTable(salesData = completedSales) {
                 <td>R$ ${sale.total.toFixed(2)}</td>
                 <td>${formatDate(sale.data)}</td>
                 <td class="${sale.pago ? 'status-pago' : 'status-nao-pago'}">${sale.pago ? 'Pago' : 'Não Pago'}</td>
-                <td>
-                    <button class="botao-pagar" data-index="${index}">
-                        ${sale.pago ? 'Desmarcar' : 'Marcar Pago'}
-                    </button>
-                </td>
-                <td>
-                    <button class="botao-remover-cliente" data-index="${index}" aria-label="Remover cliente ${sale.nome}">Remover</button>
-                </td>
+                <td><button class="pay-btn" data-index="${i}">${sale.pago ? 'Desmarcar' : 'Pagar'}</button></td>
+                <td><button class="remove-btn" data-index="${i}">Remover</button></td>
             `;
-            DOM.compradoresTabela.appendChild(tr);
+            tbody.appendChild(tr);
         });
 
-        DOM.compradoresTabela.querySelectorAll('.botao-pagar').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.target.getAttribute('data-index'));
-                handleTogglePaymentStatus(idx);
-            });
-        });
-
-        DOM.compradoresTabela.querySelectorAll('.botao-remover-cliente').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.target.getAttribute('data-index'));
-                handleRemoveClient(idx);
-            });
-        });
+        document.querySelectorAll('.pay-btn').forEach(btn => 
+            btn.addEventListener('click', () => togglePayment(parseInt(btn.dataset.index)))
+        );
+        document.querySelectorAll('.remove-btn').forEach(btn => 
+            btn.addEventListener('click', () => removeSale(parseInt(btn.dataset.index)))
+        );
     }
 }
 
 function activateTab(tabId) {
-    DOM.tabs.forEach(b => b.classList.remove('active'));
-    DOM.tabContents.forEach(c => c.classList.remove('active'));
-
+    DOM.tabs.forEach(t => t.classList.remove('active'));
+    DOM.tabContents.forEach(t => t.classList.remove('active'));
     document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
     document.getElementById(tabId).classList.add('active');
+    if (tabId === 'sales-history') updateSalesTable();
 }
 
 function showModal() {
-    const clientName = DOM.formSale.querySelector('#nome').value.trim();
-    const clientPhone = DOM.formSale.querySelector('#telefone').value.trim();
-    const saleDate = DOM.formSale.querySelector('#data').value;
-
+    const { nome, telefone, data } = getFormData();
     DOM.modalDetalhes.innerHTML = `
-        <p><strong>Cliente:</strong> ${clientName}</p>
-        <p><strong>Telefone:</strong> ${clientPhone || 'Não informado'}</p>
-        <p><strong>Data:</strong> ${formatDate(saleDate)}</p>
-        <p><strong>Produtos:</strong></p>
-        <ul>
-            ${currentSale.map(item => `<li>${item.qtd}x ${item.nome} - R$ ${item.total.toFixed(2)}</li>`).join('')}
-        </ul>
+        <p><strong>Cliente:</strong> ${nome}</p>
+        <p><strong>Telefone:</strong> ${telefone || 'N/A'}</p>
+        <p><strong>Data:</strong> ${formatDate(data)}</p>
+        <p><strong>Itens:</strong></p>
+        <ul>${currentSale.map(item => `<li>${item.qtd}x ${item.nome} - R$ ${item.total.toFixed(2)}</li>`).join('')}</ul>
         <p><strong>Total:</strong> R$ ${currentSale.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</p>
     `;
     DOM.modal.classList.add('active');
 }
 
-// --- Funções de Lógica de Negócio ---
-function handleAddProductToCurrentSale(product) {
-    const item = currentSale.find(p => p.id === product.id);
+// --- Funções de Lógica ---
+function addToSale(product) {
+    let item = currentSale.find(p => p.id === product.id);
     if (item) {
-        item.qtd += 1;
+        item.qtd++;
         item.total = item.qtd * item.preco;
     } else {
         currentSale.push({ ...product, qtd: 1, total: product.preco });
     }
-    renderCurrentSaleDisplay();
-    activateTab('venda');
+    renderCurrentSale();
+    activateTab('new-sale');
 }
 
-function handleRemoveProductFromCurrentSale(index) {
-    if (index > -1) {
-        currentSale.splice(index, 1);
-    }
-    renderCurrentSaleDisplay();
+function removeFromSale(index) {
+    currentSale.splice(index, 1);
+    renderCurrentSale();
 }
 
-function handleFinalizeSale(e) {
+function getFormData() {
+    return {
+        nome: DOM.formSale.querySelector('#nome').value.trim(),
+        telefone: DOM.formSale.querySelector('#telefone').value.trim(),
+        data: DOM.formSale.querySelector('#data').value
+    };
+}
+
+function handleSale(e) {
     e.preventDefault();
-
-    if (currentSale.length === 0) {
-        alert('Por favor, adicione pelo menos um doce à venda.');
+    if (!currentSale.length) {
+        alert('Adicione pelo menos um produto!');
         return;
     }
-
-    const clientName = DOM.formSale.querySelector('#nome').value.trim();
-    const saleDate = DOM.formSale.querySelector('#data').value;
-
-    if (!clientName || !saleDate) {
-        alert('Nome do comprador e data são obrigatórios.');
+    const { nome, data } = getFormData();
+    if (!nome || !data) {
+        alert('Nome e data são obrigatórios!');
         return;
     }
-
     showModal();
 }
 
-function handleConfirmSale() {
-    const clientName = DOM.formSale.querySelector('#nome').value.trim();
-    const clientPhone = DOM.formSale.querySelector('#telefone').value.trim();
-    const saleDate = DOM.formSale.querySelector('#data').value;
-
+function confirmSale() {
+    const { nome, telefone, data } = getFormData();
     currentSale.forEach(item => {
         completedSales.push({
-            nome: clientName,
-            telefone: clientPhone || 'Não Informado',
+            nome,
+            telefone: telefone || 'N/A',
             produto: item.nome,
             qtd: item.qtd,
             total: item.total,
-            data: saleDate,
-            pago: false,
+            data,
+            pago: false
         });
     });
-
-    saveToLocalStorage('compradores', completedSales);
+    saveData('sales', completedSales);
     currentSale = [];
-    renderCurrentSaleDisplay();
+    renderCurrentSale();
     DOM.formSale.reset();
     DOM.modal.classList.remove('active');
-    activateTab('controle');
+    activateTab('sales-history');
     updateSalesTable();
-    alert('Venda finalizada com sucesso!');
+    alert('Venda registrada com sucesso!');
 }
 
-function handleTogglePaymentStatus(index) {
-    if (index > -1 && completedSales[index]) {
+function togglePayment(index) {
+    if (completedSales[index]) {
         completedSales[index].pago = !completedSales[index].pago;
-        saveToLocalStorage('compradores', completedSales);
+        saveData('sales', completedSales);
         updateSalesTable();
     }
 }
 
-function handleRemoveClient(index) {
-    if (index > -1 && completedSales[index]) {
-        const confirmRemoval = confirm(`Tem certeza que deseja remover a venda de ${completedSales[index].nome} referente a ${completedSales[index].produto}?`);
-        if (confirmRemoval) {
-            completedSales.splice(index, 1);
-            saveToLocalStorage('compradores', completedSales);
-            updateSalesTable();
-            alert('Venda removida com sucesso!');
-        }
+function removeSale(index) {
+    if (completedSales[index] && confirm(`Remover venda de ${completedSales[index].nome}?`)) {
+        completedSales.splice(index, 1);
+        saveData('sales', completedSales);
+        updateSalesTable();
     }
 }
 
-function handleApplyFilters() {
+function applyFilters() {
     const filters = {
-        cliente: DOM.filterClientInput.value,
+        cliente: DOM.filterClientInput.value.toLowerCase(),
         dataInicio: DOM.filterDateStartInput.value,
         dataFim: DOM.filterDateEndInput.value,
         status: DOM.filterStatusSelect.value,
-        produto: DOM.filterProductInput.value,
+        produto: DOM.filterProductInput.value.toLowerCase()
     };
-
-    const filteredSales = completedSales.filter(sale => {
-        const clientMatch = !filters.cliente || sale.nome.toLowerCase().includes(filters.cliente.toLowerCase());
-        const productMatch = !filters.produto || sale.produto.toLowerCase().includes(filters.produto.toLowerCase());
-        const statusMatch = !filters.status || (sale.pago ? 'pago' : 'nao-pago') === filters.status;
-        const dateStartMatch = !filters.dataInicio || sale.data >= filters.dataInicio;
-        const dateEndMatch = !filters.dataFim || sale.data <= filters.dataFim;
-
-        return clientMatch && productMatch && statusMatch && dateStartMatch && dateEndMatch;
-    });
-
-    updateSalesTable(filteredSales);
+    const filtered = completedSales.filter(sale => 
+        (!filters.cliente || sale.nome.toLowerCase().includes(filters.cliente)) &&
+        (!filters.dataInicio || sale.data >= filters.dataInicio) &&
+        (!filters.dataFim || sale.data <= filters.dataFim) &&
+        (!filters.status || (sale.pago ? 'pago' : 'nao-pago') === filters.status) &&
+        (!filters.produto || sale.produto.toLowerCase().includes(filters.produto))
+    );
+    updateSalesTable(filtered);
 }
 
 function toggleView() {
     isGroupedView = !isGroupedView;
-    DOM.toggleViewButton.textContent = isGroupedView ? 'Alternar para Visão Detalhada' : 'Alternar para Visão Agrupada';
-    handleApplyFilters();
+    DOM.toggleViewButton.textContent = isGroupedView ? 'Visão Agrupada' : 'Visão Detalhada';
+    applyFilters();
 }
 
-// --- Inicialização e Event Listeners ---
+// --- Inicialização ---
 document.addEventListener('DOMContentLoaded', () => {
-    completedSales = loadFromLocalStorage('compradores');
+    completedSales = loadData('sales');
     renderProducts();
-    renderCurrentSaleDisplay();
-    updateSalesTable();
-    activateTab('venda');
-
+    renderCurrentSale();
+    activateTab('new-sale');
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    DOM.inputDate.value = `${yyyy}-${mm}-${dd}`;
+    DOM.inputDate.value = today.toISOString().split('T')[0];
 
-    DOM.formSale.addEventListener('submit', handleFinalizeSale);
-    DOM.toggleViewButton.addEventListener('click', toggleView);
-    DOM.exportDataButton.addEventListener('click', exportToJSON);
-    DOM.importDataButton.addEventListener('click', () => DOM.importDataInput.click());
-    DOM.importDataInput.addEventListener('change', importFromJSON);
-    DOM.confirmarVenda.addEventListener('click', handleConfirmSale);
+    DOM.formSale.addEventListener('submit', handleSale);
+    DOM.confirmarVenda.addEventListener('click', confirmSale);
     DOM.cancelarVenda.addEventListener('click', () => DOM.modal.classList.remove('active'));
 
-    DOM.tabs.forEach(button => {
-        button.addEventListener('click', () => {
-            const tabId = button.dataset.tab;
-            activateTab(tabId);
-            if (tabId === 'controle') {
-                updateSalesTable();
-            }
-        });
-    });
+    DOM.tabs.forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
 
-    DOM.filterClientInput.addEventListener('input', handleApplyFilters);
-    DOM.filterDateStartInput.addEventListener('change', handleApplyFilters);
-    DOM.filterDateEndInput.addEventListener('change', handleApplyFilters);
-    DOM.filterStatusSelect.addEventListener('change', handleApplyFilters);
-    DOM.filterProductInput.addEventListener('input', handleApplyFilters);
-}); 
+    DOM.toggleViewButton.addEventListener('click', toggleView);
+
+    DOM.exportDataButton.addEventListener('click', exportData);
+
+    DOM.importDataButton.addEventListener('click', () => DOM.importDataInput.click());
+    DOM.importDataInput.addEventListener('change', importData);
+
+    [ 'filterClientInput', 'filterDateStartInput', 'filterDateEndInput', 'filterStatusSelect', 'filterProductInput' ].forEach(id =>
+        DOM[id].addEventListener('input', applyFilters)
+    );
+});
