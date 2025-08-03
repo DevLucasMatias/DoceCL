@@ -2,8 +2,8 @@
 
 :root {
     /* Cores principais */
-    --primary-color: #6B4E71; /* Roxo elegante */
-    --secondary-color: #F4A7C4; /* Rosa vibrante */
+    --primary-color: #1b011fea; /* Roxo elegante */
+    --secondary-color: #7a045d; /* Rosa vibrante */
     --accent-color: #E0E0E0; /* Cinza claro */
     --text-color: #2D2D2D;
     --light-text-color: #666666;
@@ -13,7 +13,7 @@
     --shadow-light: rgba(0, 0, 0, 0.08);
     --shadow-medium: rgba(0, 0, 0, 0.15);
     --success-color: #2ECC71;
-    --error-color: #E74C3C;
+    --error-color: #7a045d;
     --modal-bg: rgba(0, 0, 0, 0.5);
 }
 
@@ -26,15 +26,17 @@
 body {
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background-image: url('doce.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .header {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     padding: 40px;
     color: white;
     text-align: center;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 6px 12px rgba(2, 2, 2, 0.2);
     position: relative;
     overflow: hidden;
 }
@@ -46,13 +48,19 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+    background: radial-gradient(circle, rgb(48, 1, 63) 0%, rgba(82, 3, 71, 0.158) 70%);
     pointer-events: none;
 }
 
 .header-content {
     position: relative;
     z-index: 1;
+}
+
+.header-image {
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 10px;
 }
 
 .header h1 {
@@ -299,7 +307,7 @@ body {
 }
 
 .botao-cancelar:hover {
-    background: #C0392B;
+    background: #c03a2b1a;
     transform: scale(1.05);
 }
 

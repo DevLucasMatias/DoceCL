@@ -1,6 +1,6 @@
 // --- Dados Iniciais ---
 const PRODUCTS = [
-    { id: 'brigadeiro-tradicional', nome: 'Brigadeiro Tradicional', preco: 2.50, imagem: 'a.jpg' },
+    { id: 'brigadeiro-tradicional', nome: 'Brigadeiro Tradicional', preco: 2.50, imagem: 'doce.jpeg' },
     // Adicione mais produtos conforme necessário
 ];
 
