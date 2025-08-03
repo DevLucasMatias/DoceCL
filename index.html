@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brigadeiros Gourmet - Painel de Controle</title>
     <link rel="stylesheet" href="style.css" />
+    <!-- FontAwesome (se usar) -->
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
 </head>
 <body>
     <header class="banner">
@@ -54,7 +56,9 @@
                     <input type="text" id="filtro-produto" placeholder="Produto" />
                     <button id="toggle-view" class="filter-action">Alternar Visão <i class="fas fa-eye"></i></button>
                     <button id="export-data" class="filter-action">Exportar <i class="fas fa-download"></i></button>
-                    <input type="file" id="import-data" accept=".json" style="display: none;" />
+
+                    <!-- Input e botão para importar XLSX -->
+                    <input type="file" id="import-data" accept=".xlsx,.xls" style="display: none;" />
                     <button id="import-data-btn" class="filter-action">Importar <i class="fas fa-upload"></i></button>
                 </div>
                 <div class="sales-table" id="compradores"></div>
@@ -70,6 +74,9 @@
             <button id="cancelar-venda" class="modal-action cancel">Cancelar <i class="fas fa-times"></i></button>
         </div>
     </div>
+
+    <!-- Biblioteca XLSX para importar/exportar Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
     <script src="script.js"></script>
 </body>

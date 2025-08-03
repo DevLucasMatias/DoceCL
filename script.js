@@ -1,8 +1,7 @@
 // --- Dados Iniciais ---
 const PRODUCTS = [
     { id: 'brigadeiro-tradicional', nome: 'Brigadeiro Tradicional', preco: 2.50, imagem: 'Brigadeiro.jpg' },
-    // { id: 'brigadeiro-chocolate', nome: 'Brigadeiro de Chocolate', preco: 2.80, imagem: 'brigadeiro-chocolate.jpg' },
-    // { id: 'brigadeiro-leite-ninho', nome: 'Brigadeiro Leite Ninho', preco: 3.00, imagem: 'brigadeiro-leite-ninho.jpg' },
+    // Você pode adicionar outros produtos aqui
 ];
 
 let currentSale = [];
@@ -33,7 +32,7 @@ const DOM = {
     inputDate: document.getElementById('data'),
 };
 
-// --- Funções de Utilitário ---
+// --- Utilitários ---
 function saveData(key, data) {
     try {
         localStorage.setItem(key, JSON.stringify(data));
@@ -57,40 +56,7 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString('pt-BR');
 }
 
-function exportData() {
-    const dataStr = JSON.stringify(completedSales, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vendas_brigadeiros_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    alert('Dados exportados com sucesso!');
-}
-
-function importData(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const importedData = JSON.parse(e.target.result);
-                if (!Array.isArray(importedData)) throw new Error('Formato inválido');
-                completedSales = importedData;
-                saveData('sales', completedSales);
-                updateSalesTable();
-                alert('Dados importados com sucesso!');
-            } catch (error) {
-                alert('Erro ao importar dados. Verifique o arquivo.');
-                console.error('Erro ao importar JSON:', error);
-            }
-        };
-        reader.readAsText(file);
-    }
-}
-
-// --- Funções de UI ---
+// --- Renderização ---
 function renderProducts() {
     DOM.produtosDiv.innerHTML = PRODUCTS.map(product => `
         <div class="product-card" data-id="${product.id}">
@@ -99,7 +65,7 @@ function renderProducts() {
             <p>R$ ${product.preco.toFixed(2)}</p>
         </div>
     `).join('');
-    document.querySelectorAll('.product-card').forEach(card => 
+    document.querySelectorAll('.product-card').forEach(card =>
         card.addEventListener('click', () => addToSale(PRODUCTS.find(p => p.id === card.dataset.id)))
     );
 }
@@ -115,7 +81,7 @@ function renderCurrentSale() {
             <button class="remover-btn" data-index="${i}" aria-label="Remover ${item.nome}">Remover</button>
         </div>
     `).join('');
-    document.querySelectorAll('.remover-btn').forEach(btn => 
+    document.querySelectorAll('.remover-btn').forEach(btn =>
         btn.addEventListener('click', () => removeFromSale(parseInt(btn.dataset.index)))
     );
 }
@@ -193,23 +159,16 @@ function updateSalesTable(sales = completedSales) {
             tbody.appendChild(tr);
         });
 
-        document.querySelectorAll('.pay-btn').forEach(btn => 
+        document.querySelectorAll('.pay-btn').forEach(btn =>
             btn.addEventListener('click', () => togglePayment(parseInt(btn.dataset.index)))
         );
-        document.querySelectorAll('.remove-btn').forEach(btn => 
+        document.querySelectorAll('.remove-btn').forEach(btn =>
             btn.addEventListener('click', () => removeSale(parseInt(btn.dataset.index)))
         );
     }
 }
 
-function activateTab(tabId) {
-    DOM.tabs.forEach(t => t.classList.remove('active'));
-    DOM.tabContents.forEach(t => t.classList.remove('active'));
-    document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
-    document.getElementById(tabId).classList.add('active');
-    if (tabId === 'sales-history') updateSalesTable();
-}
-
+// --- Modal ---
 function showModal() {
     const { nome, telefone, data } = getFormData();
     DOM.modalDetalhes.innerHTML = `
@@ -223,7 +182,7 @@ function showModal() {
     DOM.modal.classList.add('active');
 }
 
-// --- Funções de Lógica ---
+// --- Lógica de venda ---
 function addToSale(product) {
     let item = currentSale.find(p => p.id === product.id);
     if (item) {
@@ -310,7 +269,7 @@ function applyFilters() {
         status: DOM.filterStatusSelect.value,
         produto: DOM.filterProductInput.value.toLowerCase()
     };
-    const filtered = completedSales.filter(sale => 
+    const filtered = completedSales.filter(sale =>
         (!filters.cliente || sale.nome.toLowerCase().includes(filters.cliente)) &&
         (!filters.dataInicio || sale.data >= filters.dataInicio) &&
         (!filters.dataFim || sale.data <= filters.dataFim) &&
@@ -324,6 +283,77 @@ function toggleView() {
     isGroupedView = !isGroupedView;
     DOM.toggleViewButton.textContent = isGroupedView ? 'Visão Agrupada' : 'Visão Detalhada';
     applyFilters();
+}
+
+function activateTab(tabId) {
+    DOM.tabs.forEach(t => t.classList.remove('active'));
+    DOM.tabContents.forEach(t => t.classList.remove('active'));
+    document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+    if (tabId === 'sales-history') updateSalesTable();
+}
+
+// --- Exportação para Excel ---
+function exportToExcel() {
+    if (!completedSales.length) {
+        alert('Nenhuma venda para exportar.');
+        return;
+    }
+    // Transformar dados em array de objetos com nomes iguais às colunas da planilha
+    const worksheetData = completedSales.map(sale => ({
+        Cliente: sale.nome,
+        Telefone: sale.telefone,
+        Produto: sale.produto,
+        Quantidade: sale.qtd,
+        Total: sale.total,
+        Data: sale.data,
+        Status: sale.pago ? 'Pago' : 'Não Pago',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Vendas");
+    XLSX.writeFile(workbook, `vendas_brigadeiros_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// --- Importação do Excel ---
+function importFromExcel(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type: "array"});
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        // Validar e mapear dados importados para o formato interno
+        try {
+            const importedSales = jsonData.map(item => ({
+                nome: item.Cliente || 'N/A',
+                telefone: item.Telefone || 'N/A',
+                produto: item.Produto || 'N/A',
+                qtd: Number(item.Quantidade) || 1,
+                total: Number(item.Total) || 0,
+                data: item.Data || new Date().toISOString().slice(0,10),
+                pago: item.Status?.toLowerCase() === 'pago' ? true : false,
+            }));
+
+            completedSales = importedSales;
+            saveData('sales', completedSales);
+            updateSalesTable();
+            alert('Dados importados com sucesso!');
+        } catch (err) {
+            alert('Erro ao processar os dados da planilha.');
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+
+    // Limpar valor do input para permitir importação repetida do mesmo arquivo
+    event.target.value = '';
 }
 
 // --- Inicialização ---
@@ -343,12 +373,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     DOM.toggleViewButton.addEventListener('click', toggleView);
 
-    DOM.exportDataButton.addEventListener('click', exportData);
+    DOM.exportDataButton.addEventListener('click', exportToExcel);
 
     DOM.importDataButton.addEventListener('click', () => DOM.importDataInput.click());
-    DOM.importDataInput.addEventListener('change', importData);
+    DOM.importDataInput.addEventListener('change', importFromExcel);
 
-    [ 'filterClientInput', 'filterDateStartInput', 'filterDateEndInput', 'filterStatusSelect', 'filterProductInput' ].forEach(id =>
-        DOM[id].addEventListener('input', applyFilters)
-    );
+    [
+        'filterClientInput',
+        'filterDateStartInput',
+        'filterDateEndInput',
+        'filterStatusSelect',
+        'filterProductInput'
+    ].forEach(id => DOM[id].addEventListener('input', applyFilters));
 });
