@@ -378,6 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.importDataButton.addEventListener('click', () => DOM.importDataInput.click());
     DOM.importDataInput.addEventListener('change', importFromExcel);
 
+    
     [
         'filterClientInput',
         'filterDateStartInput',
