@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brigadeiros Gourmet - Painel de Controle</title>
     <link rel="stylesheet" href="style.css" />
-    <!-- FontAwesome (se usar) -->
     <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDK versão compatível (v8 style) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <header class="banner">
@@ -14,7 +17,6 @@
             <h1>Brigadeiros Gourmet <i class="fas fa-birthday-cake"></i></h1>
             <p>Lucas & Cleice</p>
         </div>
-        <!-- <img src="brigadeiro-banner.jpg" alt="Brigadeiro Gourmet Banner" class="banner-image" /> -->
     </header>
 
     <div class="dashboard">
@@ -25,6 +27,7 @@
             <nav class="menu-tabs">
                 <button class="tab active" data-tab="new-sale"><i class="fas fa-shopping-cart"></i> Nova Venda</button>
                 <button class="tab" data-tab="sales-history"><i class="fas fa-history"></i> Histórico</button>
+                <button class="tab" data-tab="expenses"><i class="fas fa-money-bill"></i> Despesas</button>
             </nav>
         </aside>
 
@@ -56,12 +59,38 @@
                     <input type="text" id="filtro-produto" placeholder="Produto" />
                     <button id="toggle-view" class="filter-action">Alternar Visão <i class="fas fa-eye"></i></button>
                     <button id="export-data" class="filter-action">Exportar <i class="fas fa-download"></i></button>
-
-                    <!-- Input e botão para importar XLSX -->
-                    <input type="file" id="import-data" accept=".xlsx,.xls" style="display: none;" />
+                    <input type="file" id="import-data" accept=".json" style="display: none;" />
                     <button id="import-data-btn" class="filter-action">Importar <i class="fas fa-upload"></i></button>
                 </div>
                 <div class="sales-table" id="compradores"></div>
+            </section>
+
+            <section id="expenses" class="tab-content">
+                <h2>Despesas <i class="fas fa-money-bill"></i></h2>
+                <form id="form-despesa" class="expense-form">
+                    <h3>Registrar Despesa <i class="fas fa-plus"></i></h3>
+                    <select id="categoria-despesa" required>
+                        <option value="">Selecione a Categoria</option>
+                        <option value="Uber">Uber</option>
+                        <option value="Materiais">Materiais</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                    <input type="text" id="descricao-despesa" placeholder="Descrição" required />
+                    <input type="number" id="valor-despesa" placeholder="Valor (R$)" step="0.01" min="0" required />
+                    <input type="date" id="data-despesa" required />
+                    <button type="submit">Registrar Despesa <i class="fas fa-check"></i></button>
+                </form>
+                <div class="filter-bar">
+                    <input type="text" id="filtro-despesa-categoria" placeholder="Categoria" />
+                    <input type="date" id="filtro-despesa-data-inicio" placeholder="De" />
+                    <input type="date" id="filtro-despesa-data-fim" placeholder="Até" />
+                    <input type="text" id="filtro-despesa-descricao" placeholder="Descrição" />
+                    <button id="export-expenses" class="filter-action">Exportar <i class="fas fa-download"></i></button>
+                    <input type="file" id="import-expenses" accept=".json" style="display: none;" />
+                    <button id="import-expenses-btn" class="filter-action">Importar <i class="fas fa-upload"></i></button>
+                </div>
+                <canvas id="expense-chart" style="max-height: 300px; margin-bottom: 20px;"></canvas>
+                <div class="sales-table" id="despesas"></div>
             </section>
         </main>
     </div>
@@ -75,9 +104,16 @@
         </div>
     </div>
 
-    <!-- Biblioteca XLSX para importar/exportar Excel -->
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <div id="modal-confirmacao-despesa" class="modal">
+        <div class="modal-content">
+            <h3>Confirmação de Despesa <i class="fas fa-money-bill"></i></h3>
+            <div id="modal-despesa-detalhes"></div>
+            <button id="confirmar-despesa" class="modal-action">Confirmar <i class="fas fa-check"></i></button>
+            <button id="cancelar-despesa" class="modal-action cancel">Cancelar <i class="fas fa-times"></i></button>
+        </div>
+    </div>
 
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

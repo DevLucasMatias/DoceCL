@@ -1,11 +1,25 @@
+// --- Firebase Config e Inicialização ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCFGN-HlN620RFrFAw2ty-KU4gRWrWXtIE",
+  authDomain: "brigadeirospainel.firebaseapp.com",
+  projectId: "brigadeirospainel",
+  storageBucket: "brigadeirospainel.firebasestorage.app",
+  messagingSenderId: "786298308276",
+  appId: "1:786298308276:web:a548c7b7e604c4d88b79e1"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 // --- Dados Iniciais ---
 const PRODUCTS = [
     { id: 'brigadeiro-tradicional', nome: 'Brigadeiro Tradicional', preco: 2.50, imagem: 'Brigadeiro.jpg' },
-    // Você pode adicionar outros produtos aqui
+    // Adicione outros produtos aqui se quiser
 ];
 
 let currentSale = [];
 let completedSales = [];
+let currentExpenses = [];
 let isGroupedView = false;
 
 // --- Seletores DOM ---
@@ -29,28 +43,24 @@ const DOM = {
     modalDetalhes: document.getElementById('modal-venda-detalhes'),
     confirmarVenda: document.getElementById('confirmar-venda'),
     cancelarVenda: document.getElementById('cancelar-venda'),
-    inputDate: document.getElementById('data'),
+
+    // Despesas
+    formExpense: document.getElementById('form-despesa'),
+    despesasDiv: document.getElementById('despesas'),
+    filterExpenseCategory: document.getElementById('filtro-despesa-categoria'),
+    filterExpenseDateStart: document.getElementById('filtro-despesa-data-inicio'),
+    filterExpenseDateEnd: document.getElementById('filtro-despesa-data-fim'),
+    filterExpenseDescription: document.getElementById('filtro-despesa-descricao'),
+    exportExpensesBtn: document.getElementById('export-expenses'),
+    importExpensesBtn: document.getElementById('import-expenses-btn'),
+    importExpensesInput: document.getElementById('import-expenses'),
+    modalExpenseConfirm: document.getElementById('modal-confirmacao-despesa'),
+    modalExpenseDetails: document.getElementById('modal-despesa-detalhes'),
+    confirmarDespesa: document.getElementById('confirmar-despesa'),
+    cancelarDespesa: document.getElementById('cancelar-despesa'),
 };
 
 // --- Utilitários ---
-function saveData(key, data) {
-    try {
-        localStorage.setItem(key, JSON.stringify(data));
-    } catch (error) {
-        console.error(`Erro ao salvar dados no localStorage para a chave "${key}":`, error);
-    }
-}
-
-function loadData(key, defaultValue = []) {
-    try {
-        const data = localStorage.getItem(key);
-        return data ? JSON.parse(data) : defaultValue;
-    } catch (error) {
-        console.error(`Erro ao carregar dados do localStorage para a chave "${key}":`, error);
-        return defaultValue;
-    }
-}
-
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('pt-BR');
@@ -168,7 +178,7 @@ function updateSalesTable(sales = completedSales) {
     }
 }
 
-// --- Modal ---
+// --- Modal Vendas ---
 function showModal() {
     const { nome, telefone, data } = getFormData();
     DOM.modalDetalhes.innerHTML = `
@@ -182,7 +192,7 @@ function showModal() {
     DOM.modal.classList.add('active');
 }
 
-// --- Lógica de venda ---
+// --- Lógica Venda ---
 function addToSale(product) {
     let item = currentSale.find(p => p.id === product.id);
     if (item) {
@@ -222,167 +232,372 @@ function handleSale(e) {
     showModal();
 }
 
-function confirmSale() {
-    const { nome, telefone, data } = getFormData();
-    currentSale.forEach(item => {
-        completedSales.push({
-            nome,
-            telefone: telefone || 'N/A',
-            produto: item.nome,
-            qtd: item.qtd,
-            total: item.total,
-            data,
-            pago: false
-        });
-    });
-    saveData('sales', completedSales);
-    currentSale = [];
-    renderCurrentSale();
-    DOM.formSale.reset();
+
+
+function cancelSale() {
     DOM.modal.classList.remove('active');
-    activateTab('sales-history');
-    updateSalesTable();
-    alert('Venda registrada com sucesso!');
 }
 
-function togglePayment(index) {
-    if (completedSales[index]) {
-        completedSales[index].pago = !completedSales[index].pago;
-        saveData('sales', completedSales);
-        updateSalesTable();
+// --- Funções Histórico ---
+async function loadSales() {
+    try {
+        const snapshot = await db.collection("vendas").orderBy('timestamp', 'desc').get();
+        completedSales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        applySalesFilters();
+    } catch (error) {
+        alert("Erro ao carregar vendas: " + error.message);
     }
 }
 
-function removeSale(index) {
-    if (completedSales[index] && confirm(`Remover venda de ${completedSales[index].nome}?`)) {
-        completedSales.splice(index, 1);
+async function confirmSale() {
+    const { nome, telefone, data } = getFormData();
+    
+    try {
+        // Salvar cada item da venda no Firestore
+        for (const item of currentSale) {
+            await db.collection('sales').add({
+                nome,
+                telefone: telefone || 'N/A',
+                produto: item.nome,
+                qtd: item.qtd,
+                total: item.total,
+                data,
+                pago: false
+            });
+        }
+
+        // Também salvar localmente (localStorage)
+        currentSale.forEach(item => {
+            completedSales.push({
+                nome,
+                telefone: telefone || 'N/A',
+                produto: item.nome,
+                qtd: item.qtd,
+                total: item.total,
+                data,
+                pago: false
+            });
+        });
         saveData('sales', completedSales);
+
+        currentSale = [];
+        renderCurrentSale();
+        DOM.formSale.reset();
+        DOM.modal.classList.remove('active');
+        activateTab('sales-history');
         updateSalesTable();
+
+        alert('Venda registrada e salva no Firebase com sucesso!');
+    } catch (error) {
+        alert('Erro ao salvar a venda no Firebase. Confira o console.');
+        console.error('Erro ao salvar no Firebase:', error);
     }
 }
 
-function applyFilters() {
-    const filters = {
-        cliente: DOM.filterClientInput.value.toLowerCase(),
-        dataInicio: DOM.filterDateStartInput.value,
-        dataFim: DOM.filterDateEndInput.value,
-        status: DOM.filterStatusSelect.value,
-        produto: DOM.filterProductInput.value.toLowerCase()
-    };
-    const filtered = completedSales.filter(sale =>
-        (!filters.cliente || sale.nome.toLowerCase().includes(filters.cliente)) &&
-        (!filters.dataInicio || sale.data >= filters.dataInicio) &&
-        (!filters.dataFim || sale.data <= filters.dataFim) &&
-        (!filters.status || (sale.pago ? 'pago' : 'nao-pago') === filters.status) &&
-        (!filters.produto || sale.produto.toLowerCase().includes(filters.produto))
-    );
+
+function applySalesFilters() {
+    let filtered = completedSales;
+
+    const nomeFiltro = DOM.filterClientInput.value.toLowerCase();
+    const dataInicio = DOM.filterDateStartInput.value;
+    const dataFim = DOM.filterDateEndInput.value;
+    const statusFiltro = DOM.filterStatusSelect.value;
+    const produtoFiltro = DOM.filterProductInput.value.toLowerCase();
+
+    if (nomeFiltro) filtered = filtered.filter(s => s.nome.toLowerCase().includes(nomeFiltro));
+    if (produtoFiltro) filtered = filtered.filter(s => s.produto.toLowerCase().includes(produtoFiltro));
+    if (dataInicio) filtered = filtered.filter(s => s.data >= dataInicio);
+    if (dataFim) filtered = filtered.filter(s => s.data <= dataFim);
+    if (statusFiltro) {
+        const pagoStatus = statusFiltro === 'pago';
+        filtered = filtered.filter(s => s.pago === pagoStatus);
+    }
+
     updateSalesTable(filtered);
 }
 
-function toggleView() {
-    isGroupedView = !isGroupedView;
-    DOM.toggleViewButton.textContent = isGroupedView ? 'Visão Agrupada' : 'Visão Detalhada';
-    applyFilters();
+async function togglePayment(index) {
+    const sale = completedSales[index];
+    try {
+        await db.collection("vendas").doc(sale.id).update({ pago: !sale.pago });
+        loadSales();
+    } catch (error) {
+        alert("Erro ao atualizar status: " + error.message);
+    }
 }
 
+async function removeSale(index) {
+    const sale = completedSales[index];
+    if (!confirm(`Remover a venda do cliente ${sale.nome}?`)) return;
+    try {
+        await db.collection("vendas").doc(sale.id).delete();
+        loadSales();
+    } catch (error) {
+        alert("Erro ao remover venda: " + error.message);
+    }
+}
+
+// --- Funções Despesas ---
+async function loadExpenses() {
+    try {
+        const snapshot = await db.collection("despesas").orderBy('timestamp', 'desc').get();
+        currentExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        applyExpenseFilters();
+        renderExpenseChart();
+    } catch (error) {
+        alert("Erro ao carregar despesas: " + error.message);
+    }
+}
+
+function applyExpenseFilters() {
+    let filtered = currentExpenses;
+
+    const catFiltro = DOM.filterExpenseCategory.value.toLowerCase();
+    const descFiltro = DOM.filterExpenseDescription.value.toLowerCase();
+    const dataInicio = DOM.filterExpenseDateStart.value;
+    const dataFim = DOM.filterExpenseDateEnd.value;
+
+    if (catFiltro) filtered = filtered.filter(d => d.categoria.toLowerCase().includes(catFiltro));
+    if (descFiltro) filtered = filtered.filter(d => d.descricao.toLowerCase().includes(descFiltro));
+    if (dataInicio) filtered = filtered.filter(d => d.data >= dataInicio);
+    if (dataFim) filtered = filtered.filter(d => d.data <= dataFim);
+
+    updateExpenseTable(filtered);
+}
+
+function updateExpenseTable(expenses = currentExpenses) {
+    DOM.despesasDiv.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Categoria</th>
+                    <th>Descrição</th>
+                    <th>Valor (R$)</th>
+                    <th>Data</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="expenses-body"></tbody>
+        </table>
+    `;
+    const tbody = document.getElementById('expenses-body');
+    if (!expenses.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Nenhuma despesa registrada.</td></tr>';
+        return;
+    }
+    expenses.forEach((expense, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${expense.categoria}</td>
+            <td>${expense.descricao}</td>
+            <td>R$ ${parseFloat(expense.valor).toFixed(2)}</td>
+            <td>${formatDate(expense.data)}</td>
+            <td><button class="remove-expense-btn" data-index="${i}">Remover</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+    document.querySelectorAll('.remove-expense-btn').forEach(btn =>
+        btn.addEventListener('click', e => removeExpense(parseInt(e.target.dataset.index)))
+    );
+}
+
+function showModalExpense() {
+    const categoria = DOM.formExpense.querySelector('#categoria-despesa').value;
+    const descricao = DOM.formExpense.querySelector('#descricao-despesa').value.trim();
+    const valor = DOM.formExpense.querySelector('#valor-despesa').value;
+    const data = DOM.formExpense.querySelector('#data-despesa').value;
+
+    DOM.modalExpenseDetails.innerHTML = `
+        <p><strong>Categoria:</strong> ${categoria}</p>
+        <p><strong>Descrição:</strong> ${descricao}</p>
+        <p><strong>Valor:</strong> R$ ${parseFloat(valor).toFixed(2)}</p>
+        <p><strong>Data:</strong> ${formatDate(data)}</p>
+    `;
+    DOM.modalExpenseConfirm.classList.add('active');
+}
+
+async function confirmExpense() {
+    const categoria = DOM.formExpense.querySelector('#categoria-despesa').value;
+    const descricao = DOM.formExpense.querySelector('#descricao-despesa').value.trim();
+    const valor = DOM.formExpense.querySelector('#valor-despesa').value;
+    const data = DOM.formExpense.querySelector('#data-despesa').value;
+
+    if (!categoria || !descricao || !valor || !data) {
+        alert('Preencha todos os campos da despesa!');
+        return;
+    }
+    try {
+        await db.collection("despesas").add({
+            categoria,
+            descricao,
+            valor: parseFloat(valor),
+            data,
+            timestamp: new Date()
+        });
+        alert("Despesa registrada com sucesso!");
+        DOM.formExpense.reset();
+        DOM.modalExpenseConfirm.classList.remove('active');
+        loadExpenses();
+        activateTab('expenses');
+    } catch (error) {
+        alert("Erro ao salvar despesa: " + error.message);
+    }
+}
+
+function cancelExpense() {
+    DOM.modalExpenseConfirm.classList.remove('active');
+}
+
+async function removeExpense(index) {
+    const expense = currentExpenses[index];
+    if (!confirm(`Remover despesa: ${expense.descricao}?`)) return;
+    try {
+        await db.collection("despesas").doc(expense.id).delete();
+        loadExpenses();
+    } catch (error) {
+        alert("Erro ao remover despesa: " + error.message);
+    }
+}
+
+// --- Chart de despesas ---
+let expenseChart;
+function renderExpenseChart() {
+    const grouped = {};
+    currentExpenses.forEach(exp => {
+        grouped[exp.categoria] = (grouped[exp.categoria] || 0) + exp.valor;
+    });
+
+    const ctx = document.getElementById('expense-chart').getContext('2d');
+    if (expenseChart) expenseChart.destroy();
+
+    expenseChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(grouped),
+            datasets: [{
+                label: 'Despesas',
+                data: Object.values(grouped),
+                backgroundColor: ['#f39c12', '#e74c3c', '#8e44ad', '#3498db', '#2ecc71'],
+                hoverOffset: 30
+            }]
+        }
+    });
+}
+
+// --- Controle abas ---
 function activateTab(tabId) {
-    DOM.tabs.forEach(t => t.classList.remove('active'));
-    DOM.tabContents.forEach(t => t.classList.remove('active'));
-    document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
-    document.getElementById(tabId).classList.add('active');
-    if (tabId === 'sales-history') updateSalesTable();
+    DOM.tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === tabId));
+    DOM.tabContents.forEach(section => section.classList.toggle('active', section.id === tabId));
 }
 
-// --- Exportação para Excel ---
-function exportToExcel() {
+// --- Eventos ---
+DOM.tabs.forEach(tab =>
+    tab.addEventListener('click', () => activateTab(tab.dataset.tab))
+);
+
+DOM.formSale.addEventListener('submit', handleSale);
+DOM.confirmarVenda.addEventListener('click', confirmSale);
+DOM.cancelarVenda.addEventListener('click', cancelSale);
+
+DOM.filterClientInput.addEventListener('input', applySalesFilters);
+DOM.filterDateStartInput.addEventListener('change', applySalesFilters);
+DOM.filterDateEndInput.addEventListener('change', applySalesFilters);
+DOM.filterStatusSelect.addEventListener('change', applySalesFilters);
+DOM.filterProductInput.addEventListener('input', applySalesFilters);
+
+DOM.toggleViewButton.addEventListener('click', () => {
+    isGroupedView = !isGroupedView;
+    applySalesFilters();
+});
+
+DOM.exportDataButton.addEventListener('click', () => {
     if (!completedSales.length) {
         alert('Nenhuma venda para exportar.');
         return;
     }
-    // Transformar dados em array de objetos com nomes iguais às colunas da planilha
-    const worksheetData = completedSales.map(sale => ({
-        Cliente: sale.nome,
-        Telefone: sale.telefone,
-        Produto: sale.produto,
-        Quantidade: sale.qtd,
-        Total: sale.total,
-        Data: sale.data,
-        Status: sale.pago ? 'Pago' : 'Não Pago',
-    }));
+    const dataStr = JSON.stringify(completedSales, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vendas_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+});
 
-    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Vendas");
-    XLSX.writeFile(workbook, `vendas_brigadeiros_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
-
-// --- Importação do Excel ---
-function importFromExcel(event) {
-    const file = event.target.files[0];
+DOM.importDataButton.addEventListener('click', () => DOM.importDataInput.click());
+DOM.importDataInput.addEventListener('change', e => {
+    const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type: "array"});
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        // Validar e mapear dados importados para o formato interno
+    reader.onload = async function(ev) {
         try {
-            const importedSales = jsonData.map(item => ({
-                nome: item.Cliente || 'N/A',
-                telefone: item.Telefone || 'N/A',
-                produto: item.Produto || 'N/A',
-                qtd: Number(item.Quantidade) || 1,
-                total: Number(item.Total) || 0,
-                data: item.Data || new Date().toISOString().slice(0,10),
-                pago: item.Status?.toLowerCase() === 'pago' ? true : false,
-            }));
-
-            completedSales = importedSales;
-            saveData('sales', completedSales);
-            updateSalesTable();
-            alert('Dados importados com sucesso!');
-        } catch (err) {
-            alert('Erro ao processar os dados da planilha.');
-            console.error(err);
+            const imported = JSON.parse(ev.target.result);
+            if (!Array.isArray(imported)) throw new Error('Arquivo inválido.');
+            for (const item of imported) {
+                await db.collection('vendas').add(item);
+            }
+            alert('Vendas importadas com sucesso!');
+            loadSales();
+        } catch (error) {
+            alert('Erro ao importar: ' + error.message);
         }
     };
-    reader.readAsArrayBuffer(file);
-
-    // Limpar valor do input para permitir importação repetida do mesmo arquivo
-    event.target.value = '';
-}
-
-// --- Inicialização ---
-document.addEventListener('DOMContentLoaded', () => {
-    completedSales = loadData('sales');
-    renderProducts();
-    renderCurrentSale();
-    activateTab('new-sale');
-    const today = new Date();
-    DOM.inputDate.value = today.toISOString().split('T')[0];
-
-    DOM.formSale.addEventListener('submit', handleSale);
-    DOM.confirmarVenda.addEventListener('click', confirmSale);
-    DOM.cancelarVenda.addEventListener('click', () => DOM.modal.classList.remove('active'));
-
-    DOM.tabs.forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
-
-    DOM.toggleViewButton.addEventListener('click', toggleView);
-
-    DOM.exportDataButton.addEventListener('click', exportToExcel);
-
-    DOM.importDataButton.addEventListener('click', () => DOM.importDataInput.click());
-    DOM.importDataInput.addEventListener('change', importFromExcel);
-
-    [
-        'filterClientInput',
-        'filterDateStartInput',
-        'filterDateEndInput',
-        'filterStatusSelect',
-        'filterProductInput'
-    ].forEach(id => DOM[id].addEventListener('input', applyFilters));
+    reader.readAsText(file);
 });
+
+// Despesas eventos
+DOM.formExpense.addEventListener('submit', e => {
+    e.preventDefault();
+    showModalExpense();
+});
+DOM.confirmarDespesa.addEventListener('click', confirmExpense);
+DOM.cancelarDespesa.addEventListener('click', cancelExpense);
+
+DOM.filterExpenseCategory.addEventListener('input', applyExpenseFilters);
+DOM.filterExpenseDateStart.addEventListener('change', applyExpenseFilters);
+DOM.filterExpenseDateEnd.addEventListener('change', applyExpenseFilters);
+DOM.filterExpenseDescription.addEventListener('input', applyExpenseFilters);
+
+DOM.exportExpensesBtn.addEventListener('click', () => {
+    if (!currentExpenses.length) {
+        alert('Nenhuma despesa para exportar.');
+        return;
+    }
+    const dataStr = JSON.stringify(currentExpenses, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `despesas_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+DOM.importExpensesBtn.addEventListener('click', () => DOM.importExpensesInput.click());
+DOM.importExpensesInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function(ev) {
+        try {
+            const imported = JSON.parse(ev.target.result);
+            if (!Array.isArray(imported)) throw new Error('Arquivo inválido.');
+            for (const item of imported) {
+                await db.collection('despesas').add(item);
+            }
+            alert('Despesas importadas com sucesso!');
+            loadExpenses();
+        } catch (error) {
+            alert('Erro ao importar: ' + error.message);
+        }
+    };
+    reader.readAsText(file);
+});
+
+// Inicialização
+renderProducts();
+renderCurrentSale();
+loadSales();
+loadExpenses();
+activateTab('new-sale');
