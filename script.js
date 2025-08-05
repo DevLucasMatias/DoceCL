@@ -342,6 +342,7 @@ DOM.tabs.forEach(tab => {
   });
 });
 
+
 // --- Inicialização ---
 renderProducts();
 loadSales();
