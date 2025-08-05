@@ -2,62 +2,367 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brigadeiros Gourmet - Painel de Controle</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Firebase SDK compatível (v8 style) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <!-- Firebase SDK compatível v8 -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" defer></script>
 </head>
 <body>
-  <header class="banner">
+  <header class="banner" role="banner">
     <div class="banner-overlay">
-      <h1>Brigadeiros Gourmet <i class="fas fa-birthday-cake"></i></h1>
-      <p>Lucas & Cleice</p>
+      <h1>Brigadeiros Gourmet <i class="fas fa-birthday-cake" aria-hidden="true"></i></h1>
+      <p>Lucas &amp; Cleice</p>
     </div>
   </header>
 
   <div class="dashboard">
-    <aside class="side-menu">
+    <aside class="side-menu" role="complementary" aria-label="Menu lateral">
       <div class="logo">
-        <h2>CL <i class="fas fa-cookie-bite"></i></h2>
+        <h2>CL <i class="fas fa-cookie-bite" aria-hidden="true"></i></h2>
       </div>
-      <nav class="menu-tabs">
-        <button class="tab active" data-tab="new-sale"><i class="fas fa-shopping-cart"></i> Nova Venda</button>
-        <button class="tab" data-tab="sales-history"><i class="fas fa-history"></i> Histórico</button>
-        <button class="tab" data-tab="expenses"><i class="fas fa-money-bill"></i> Despesas</button>
+      <nav class="menu-tabs" role="tablist" aria-label="Menu principal">
+        <button
+          class="tab active"
+          role="tab"
+          aria-selected="true"
+          aria-controls="new-sale"
+          id="tab-new-sale"
+          data-tab="new-sale"
+          type="button"
+          tabindex="0"
+        >
+          <i class="fas fa-shopping-cart" aria-hidden="true"></i> Nova Venda
+        </button>
+        <button
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="sales-history"
+          id="tab-sales-history"
+          data-tab="sales-history"
+          type="button"
+          tabindex="-1"
+        >
+          <i class="fas fa-history" aria-hidden="true"></i> Histórico
+        </button>
+        <button
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="expenses"
+          id="tab-expenses"
+          data-tab="expenses"
+          type="button"
+          tabindex="-1"
+        >
+          <i class="fas fa-money-bill" aria-hidden="true"></i> Despesas
+        </button>
       </nav>
     </aside>
 
-    <main class="dashboard-content">
-      <!-- Abas de conteúdo aqui -->
-      <!-- Mantido igual ao seu original -->
+    <main class="dashboard-content" role="main">
+      <!-- Nova Venda -->
+      <section
+        id="new-sale"
+        class="tab-content active"
+        role="tabpanel"
+        aria-labelledby="tab-new-sale"
+        tabindex="0"
+      >
+        <h2>Nova Venda <i class="fas fa-shopping-cart" aria-hidden="true"></i></h2>
+
+        <div class="product-showcase" id="produtos" aria-live="polite" aria-label="Lista de produtos"></div>
+
+        <div class="order-summary" id="venda-atual" aria-live="polite" aria-label="Resumo do pedido atual"></div>
+
+        <form id="form-venda" class="order-form" aria-label="Formulário de nova venda" novalidate>
+          <h3>Dados do Cliente <i class="fas fa-user" aria-hidden="true"></i></h3>
+
+          <label for="nome" class="visually-hidden">Nome do cliente</label>
+          <input
+            type="text"
+            id="nome"
+            name="nome"
+            placeholder="Nome"
+            required
+            aria-required="true"
+            autocomplete="name"
+          />
+
+          <label for="telefone" class="visually-hidden">Telefone do cliente</label>
+          <input
+            type="tel"
+            id="telefone"
+            name="telefone"
+            placeholder="Telefone"
+            pattern="[\d\s()+-]{8,}"
+            autocomplete="tel"
+            aria-describedby="telefone-help"
+          />
+          <small id="telefone-help" class="sr-only">Formato esperado: somente números, espaços, parênteses, + ou -</small>
+
+          <label for="data" class="visually-hidden">Data da venda</label>
+          <input
+            type="date"
+            id="data"
+            name="data"
+            required
+            aria-required="true"
+            max=""
+            aria-describedby="data-help"
+          />
+          <small id="data-help" class="sr-only">Selecione a data da venda</small>
+
+          <button type="submit">Registrar Venda <i class="fas fa-check" aria-hidden="true"></i></button>
+        </form>
+      </section>
+
+      <!-- Histórico de Vendas -->
+      <section
+        id="sales-history"
+        class="tab-content"
+        role="tabpanel"
+        aria-labelledby="tab-sales-history"
+        tabindex="-1"
+      >
+        <h2>Histórico de Vendas <i class="fas fa-list" aria-hidden="true"></i></h2>
+
+        <div class="filter-bar" role="region" aria-label="Filtros para histórico de vendas">
+          <input
+            type="text"
+            id="filtro-cliente"
+            name="filtro-cliente"
+            placeholder="Cliente"
+            aria-label="Filtrar por cliente"
+          />
+          <input
+            type="date"
+            id="filtro-data-inicio"
+            name="filtro-data-inicio"
+            placeholder="De"
+            aria-label="Filtrar por data de início"
+          />
+          <input
+            type="date"
+            id="filtro-data-fim"
+            name="filtro-data-fim"
+            placeholder="Até"
+            aria-label="Filtrar por data fim"
+          />
+          <select id="filtro-status" name="filtro-status" aria-label="Filtrar por status">
+            <option value="">Status</option>
+            <option value="pago">Pago</option>
+            <option value="nao-pago">Não Pago</option>
+          </select>
+          <input
+            type="text"
+            id="filtro-produto"
+            name="filtro-produto"
+            placeholder="Produto"
+            aria-label="Filtrar por produto"
+          />
+          <button id="toggle-view" class="filter-action" type="button" aria-pressed="false">
+            Alternar Visão <i class="fas fa-eye" aria-hidden="true"></i>
+          </button>
+          <button id="export-data" class="filter-action" type="button">
+            Exportar <i class="fas fa-download" aria-hidden="true"></i>
+          </button>
+          <input type="file" id="import-data" accept=".json" hidden />
+          <button id="import-data-btn" class="filter-action" type="button">
+            Importar <i class="fas fa-upload" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="sales-table" id="compradores" aria-live="polite" aria-label="Tabela de histórico de vendas"></div>
+      </section>
+
+      <!-- Despesas -->
+      <section
+        id="expenses"
+        class="tab-content"
+        role="tabpanel"
+        aria-labelledby="tab-expenses"
+        tabindex="-1"
+      >
+        <h2>Despesas <i class="fas fa-money-bill" aria-hidden="true"></i></h2>
+
+        <form id="form-despesa" class="expense-form" aria-label="Formulário de registro de despesas" novalidate>
+          <h3>Registrar Despesa <i class="fas fa-plus" aria-hidden="true"></i></h3>
+
+          <label for="categoria-despesa" class="visually-hidden">Categoria da despesa</label>
+          <select id="categoria-despesa" name="categoria-despesa" required aria-required="true">
+            <option value="" disabled selected>Selecione a Categoria</option>
+            <option value="Uber">Uber</option>
+            <option value="Materiais">Materiais</option>
+            <option value="Outros">Outros</option>
+          </select>
+
+          <label for="descricao-despesa" class="visually-hidden">Descrição da despesa</label>
+          <input
+            type="text"
+            id="descricao-despesa"
+            name="descricao-despesa"
+            placeholder="Descrição"
+            required
+            aria-required="true"
+          />
+
+          <label for="valor-despesa" class="visually-hidden">Valor da despesa em reais</label>
+          <input
+            type="number"
+            id="valor-despesa"
+            name="valor-despesa"
+            placeholder="Valor (R$)"
+            step="0.01"
+            min="0"
+            required
+            aria-required="true"
+            inputmode="decimal"
+          />
+
+          <label for="data-despesa" class="visually-hidden">Data da despesa</label>
+          <input
+            type="date"
+            id="data-despesa"
+            name="data-despesa"
+            required
+            aria-required="true"
+            max=""
+          />
+
+          <button type="submit">Registrar Despesa <i class="fas fa-check" aria-hidden="true"></i></button>
+        </form>
+
+        <div class="filter-bar" role="region" aria-label="Filtros para despesas">
+          <input
+            type="text"
+            id="filtro-despesa-categoria"
+            name="filtro-despesa-categoria"
+            placeholder="Categoria"
+            aria-label="Filtrar por categoria"
+          />
+          <input
+            type="date"
+            id="filtro-despesa-data-inicio"
+            name="filtro-despesa-data-inicio"
+            placeholder="De"
+            aria-label="Filtrar por data início"
+          />
+          <input
+            type="date"
+            id="filtro-despesa-data-fim"
+            name="filtro-despesa-data-fim"
+            placeholder="Até"
+            aria-label="Filtrar por data fim"
+          />
+          <input
+            type="text"
+            id="filtro-despesa-descricao"
+            name="filtro-despesa-descricao"
+            placeholder="Descrição"
+            aria-label="Filtrar por descrição"
+          />
+          <button id="export-expenses" class="filter-action" type="button">
+            Exportar <i class="fas fa-download" aria-hidden="true"></i>
+          </button>
+          <input type="file" id="import-expenses" accept=".json" hidden />
+          <button id="import-expenses-btn" class="filter-action" type="button">
+            Importar <i class="fas fa-upload" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <canvas
+          id="expense-chart"
+          style="max-height: 300px; margin-bottom: 20px;"
+          aria-label="Gráfico de despesas"
+          role="img"
+          tabindex="0"
+        ></canvas>
+
+        <div class="sales-table" id="despesas" aria-live="polite" aria-label="Tabela de despesas"></div>
+      </section>
     </main>
   </div>
 
-  <!-- Modal de Confirmação de Venda -->
-  <div id="modal-confirmacao" class="modal">
+  <!-- Modal Confirmação Venda -->
+  <div
+    id="modal-confirmacao"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-confirmacao-titulo"
+    aria-describedby="modal-confirmacao-desc"
+    hidden
+  >
     <div class="modal-content">
-      <h3>Confirmação de Venda <i class="fas fa-thumbs-up"></i></h3>
-      <div id="modal-venda-detalhes"></div>
-      <button id="confirmar-venda" class="modal-action">Confirmar <i class="fas fa-check"></i></button>
-      <button id="cancelar-venda" class="modal-action cancel">Cancelar <i class="fas fa-times"></i></button>
+      <h3 id="modal-confirmacao-titulo">
+        Confirmação de Venda <i class="fas fa-thumbs-up" aria-hidden="true"></i>
+      </h3>
+      <div id="modal-venda-detalhes" aria-live="polite" aria-atomic="true"></div>
+      <button id="confirmar-venda" class="modal-action" type="button">
+        Confirmar <i class="fas fa-check" aria-hidden="true"></i>
+      </button>
+      <button id="cancelar-venda" class="modal-action cancel" type="button">
+        Cancelar <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
     </div>
   </div>
 
-  <!-- Modal de Confirmação de Despesa -->
-  <div id="modal-confirmacao-despesa" class="modal">
+  <!-- Modal Confirmação Despesa -->
+  <div
+    id="modal-confirmacao-despesa"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-confirmacao-despesa-titulo"
+    aria-describedby="modal-confirmacao-despesa-desc"
+    hidden
+  >
     <div class="modal-content">
-      <h3>Confirmação de Despesa <i class="fas fa-money-bill"></i></h3>
-      <div id="modal-despesa-detalhes"></div>
-      <button id="confirmar-despesa" class="modal-action">Confirmar <i class="fas fa-check"></i></button>
-      <button id="cancelar-despesa" class="modal-action cancel">Cancelar <i class="fas fa-times"></i></button>
+      <h3 id="modal-confirmacao-despesa-titulo">
+        Confirmação de Despesa <i class="fas fa-money-bill" aria-hidden="true"></i>
+      </h3>
+      <div id="modal-despesa-detalhes" aria-live="polite" aria-atomic="true"></div>
+      <button id="confirmar-despesa" class="modal-action" type="button">
+        Confirmar <i class="fas fa-check" aria-hidden="true"></i>
+      </button>
+      <button id="cancelar-despesa" class="modal-action cancel" type="button">
+        Cancelar <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
     </div>
   </div>
 
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <script src="script.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
+  <script src="script.js" defer></script>
+
+  <!-- Estilo para elementos visuais escondidos (acessibilidade) -->
+  <style>
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0,0,0,0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0,0,0,0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+  </style>
 </body>
 </html>
