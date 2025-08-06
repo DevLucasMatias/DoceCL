@@ -1,6 +1,6 @@
 // Firebase Modular SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Firebase Config
 const firebaseConfig = {
@@ -170,10 +170,23 @@ DOM.formSale.addEventListener("submit", async e => {
         return;
     }
 
+    // Validar e formatar a data
+    let formattedDate;
+    try {
+        const dateObj = new Date(data);
+        if (isNaN(dateObj.getTime())) {
+            throw new Error("Data inválida");
+        }
+        formattedDate = dateObj.toISOString().split("T")[0]; // Garante formato YYYY-MM-DD
+    } catch (error) {
+        alert("Data inválida. Por favor, selecione uma data válida.");
+        return;
+    }
+
     DOM.modalVendaDetalhes.innerHTML = `
         <p><strong>Cliente:</strong> ${nome}</p>
         <p><strong>Telefone:</strong> ${telefone}</p>
-        <p><strong>Data:</strong> ${new Date(data).toLocaleDateString("pt-BR")}</p>
+        <p><strong>Data:</strong> ${new Date(formattedDate).toLocaleDateString("pt-BR")}</p>
         <p><strong>Itens:</strong></p>
         <ul>${currentSale.map(item => `<li>${item.nome} x${item.qtd} - R$ ${(item.qtd * item.preco).toFixed(2)}</li>`).join("")}</ul>
         <p><strong>Total:</strong> R$ ${currentSale.reduce((sum, item) => sum + item.qtd * item.preco, 0).toFixed(2)}</p>
@@ -190,7 +203,7 @@ DOM.formSale.addEventListener("submit", async e => {
                         produto: item.nome,
                         qtd: item.qtd,
                         total: item.qtd * item.preco,
-                        data,
+                        data: formattedDate,
                         pago: false,
                         timestamp: new Date(),
                     })
@@ -225,11 +238,24 @@ DOM.formExpense.addEventListener("submit", async e => {
         return;
     }
 
+    // Validar e formatar a data
+    let formattedDate;
+    try {
+        const dateObj = new Date(data);
+        if (isNaN(dateObj.getTime())) {
+            throw new Error("Data inválida");
+        }
+        formattedDate = dateObj.toISOString().split("T")[0]; // Garante formato YYYY-MM-DD
+    } catch (error) {
+        alert("Data inválida. Por favor, selecione uma data válida.");
+        return;
+    }
+
     DOM.modalDespesaDetalhes.innerHTML = `
         <p><strong>Categoria:</strong> ${categoria}</p>
         <p><strong>Descrição:</strong> ${descricao}</p>
         <p><strong>Valor:</strong> R$ ${valor.toFixed(2)}</p>
-        <p><strong>Data:</strong> ${new Date(data).toLocaleDateString("pt-BR")}</p>
+        <p><strong>Data:</strong> ${new Date(formattedDate).toLocaleDateString("pt-BR")}</p>
     `;
     DOM.modalDespesa.classList.add("active");
 
@@ -239,7 +265,7 @@ DOM.formExpense.addEventListener("submit", async e => {
                 categoria,
                 descricao,
                 valor,
-                data,
+                data: formattedDate,
                 timestamp: new Date(),
             });
             alert("Despesa registrada com sucesso!");
@@ -262,10 +288,27 @@ async function loadSales() {
         const snapshot = await getDocs(collection(db, "sales"));
         completedSales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderSalesTable();
-        groupByClient(); // Atualiza a tabela de dívidas ao carregar vendas
+        groupByClient();
     } catch (error) {
         console.error("Erro ao carregar vendas:", error);
         alert("Erro ao carregar vendas. Verifique sua conexão.");
+    }
+}
+
+// Função para remover uma venda
+async function removeSale(id) {
+    if (!confirm("Tem certeza que deseja remover esta venda? Esta ação não pode ser desfeita.")) {
+        return;
+    }
+    try {
+        await deleteDoc(doc(db, "sales", id));
+        completedSales = completedSales.filter(s => s.id !== id);
+        renderSalesTable();
+        groupByClient();
+        alert("Venda removida com sucesso!");
+    } catch (error) {
+        console.error("Erro ao remover venda:", error);
+        alert("Erro ao remover venda. Tente novamente.");
     }
 }
 
@@ -292,7 +335,7 @@ function renderSalesTable() {
 
     const header = `
         <div class="table-header">
-            <div>Cliente</div><div>Produto</div><div>Quantidade</div><div>Data</div><div>Telefone</div><div>Status</div><div>Valor</div>
+            <div>Cliente</div><div>Produto</div><div>Quantidade</div><div>Data</div><div>Telefone</div><div>Status</div><div>Valor</div><div>Ações</div>
         </div>`;
 
     const rows = filtered.length
@@ -303,7 +346,7 @@ function renderSalesTable() {
                     <div>${s.nome}</div>
                     <div>${s.produto}</div>
                     <div>${s.qtd}</div>
-                    <div>${new Date(s.data).toLocaleDateString("pt-BR")}</div>
+                    <div>${s.data ? new Date(s.data).toLocaleDateString("pt-BR") : "Data inválida"}</div>
                     <div>${s.telefone}</div>
                     <div>
                         <label class="status-toggle">
@@ -313,10 +356,13 @@ function renderSalesTable() {
                         </label>
                     </div>
                     <div>R$ ${s.total.toFixed(2)}</div>
+                    <div>
+                        <button class="remover-venda-btn" data-id="${s.id}" aria-label="Remover venda de ${s.nome}">Remover</button>
+                    </div>
                 </div>`
             )
             .join("")
-        : `<div class="table-row"><div colspan="7"><em>Nenhuma venda encontrada</em></div></div>`;
+        : `<div class="table-row"><div colspan="8"><em>Nenhuma venda encontrada</em></div></div>`;
 
     DOM.compradoresDiv.innerHTML = header + rows;
 
@@ -329,7 +375,7 @@ function renderSalesTable() {
                 const sale = completedSales.find(s => s.id === id);
                 if (sale) sale.pago = pago;
                 renderSalesTable();
-                groupByClient(); // Atualiza a tabela de dívidas após mudar status
+                groupByClient();
             } catch (error) {
                 console.error("Erro ao atualizar status:", error);
                 alert("Erro ao atualizar status de pagamento.");
@@ -337,11 +383,15 @@ function renderSalesTable() {
             }
         });
     });
+
+    DOM.compradoresDiv.querySelectorAll(".remover-venda-btn").forEach(btn => {
+        btn.addEventListener("click", () => removeSale(btn.dataset.id));
+    });
 }
 
 // Agrupa vendas não pagas por cliente
 function groupByClient() {
-    let filteredSales = [...completedSales].filter(s => !s.pago); // Apenas vendas não pagas
+    let filteredSales = [...completedSales].filter(s => !s.pago);
 
     if (DOM.filterStart.value) {
         filteredSales = filteredSales.filter(s => s.data >= DOM.filterStart.value);
@@ -437,7 +487,7 @@ function renderExpenseTable() {
                     <div>${e.categoria}</div>
                     <div>${e.descricao}</div>
                     <div>R$ ${e.valor.toFixed(2)}</div>
-                    <div>${new Date(e.data).toLocaleDateString("pt-BR")}</div>
+                    <div>${e.data ? new Date(e.data).toLocaleDateString("pt-BR") : "Data inválida"}</div>
                 </div>`
             )
             .join("")
@@ -524,18 +574,28 @@ DOM.importDataInput.addEventListener("change", async e => {
         }
 
         await Promise.all(
-            validData.map(item =>
-                addDoc(collection(db, "sales"), {
+            validData.map(item => {
+                let formattedDate;
+                try {
+                    const dateObj = new Date(item.Data);
+                    if (isNaN(dateObj.getTime())) {
+                        throw new Error("Data inválida");
+                    }
+                    formattedDate = dateObj.toISOString().split("T")[0];
+                } catch (error) {
+                    formattedDate = new Date().toISOString().split("T")[0]; // Data padrão se inválida
+                }
+                return addDoc(collection(db, "sales"), {
                     nome: item.Cliente || "Desconhecido",
                     produto: item.Produto || "Produto não especificado",
                     qtd: parseInt(item.Quantidade, 10) || 1,
                     total: parseFloat(item.Total) || 0,
-                    data: item.Data || new Date().toISOString().split("T")[0],
+                    data: formattedDate,
                     pago: item.Pago === "Sim" || item.Pago === true,
                     telefone: item.Telefone || "N/A",
                     timestamp: new Date(),
-                })
-            )
+                });
+            })
         );
         alert("Vendas importadas com sucesso!");
         DOM.importDataInput.value = "";
@@ -569,15 +629,25 @@ DOM.importExpensesInput.addEventListener("change", async e => {
         }
 
         await Promise.all(
-            validData.map(item =>
-                addDoc(collection(db, "expenses"), {
+            validData.map(item => {
+                let formattedDate;
+                try {
+                    const dateObj = new Date(item.Data);
+                    if (isNaN(dateObj.getTime())) {
+                        throw new Error("Data inválida");
+                    }
+                    formattedDate = dateObj.toISOString().split("T")[0];
+                } catch (error) {
+                    formattedDate = new Date().toISOString().split("T")[0]; // Data padrão se inválida
+                }
+                return addDoc(collection(db, "expenses"), {
                     categoria: item.Categoria || "Outros",
                     descricao: item.Descrição || "Descrição não especificada",
                     valor: parseFloat(item.Valor) || 0,
-                    data: item.Data || new Date().toISOString().split("T")[0],
+                    data: formattedDate,
                     timestamp: new Date(),
-                })
-            )
+                });
+            })
         );
         alert("Despesas importadas com sucesso!");
         DOM.importExpensesInput.value = "";
