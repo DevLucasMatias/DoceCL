@@ -66,7 +66,7 @@
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
-    <header class="bg-cover bg-center text-white py-12 text-center relative" style="background-image: url('doce.jpg') ">
+    <header class="bg-cover bg-center text-white py-12 text-center relative" style="background-image: url(doce.jpg)">
         <div class="absolute inset-0 bg-black opacity-50"></div>
         <div class="relative z-10">
             <h1 class="text-4xl md:text-5xl font-bold mb-2">Brigadeiros Gourmet <i class="fas fa-birthday-cake"></i></h1>
@@ -109,7 +109,8 @@
             </section>
 
             <section id="sales-history" class="tab-content hidden" role="tabpanel" aria-hidden="true">
-                <h2 class="text-2xl font-semibold mb-4">Histórico de Vendas <i class="fas fa-list"></i></h2>
+                <h2 class="text-2xl font-semibold mb-2">Histórico de Vendas <i class="fas fa-list"></i></h2>
+                <p class="text-lg text-gray-600 mb-4" id="total-sales">Total de Vendas: R$ 0,00</p>
                 <div class="flex flex-wrap gap-4 mb-6">
                     <input type="text" id="filtro-cliente" placeholder="Cliente" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar por cliente" />
                     <input type="date" id="filtro-data-inicio" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Data inicial" />
@@ -136,7 +137,17 @@
                         <button id="next-page" class="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700"> Próximo </button>
                     </div>
                 </div>
-                <div class="mt-6 sales-table" id="client-debts"></div>
+                <div class="mt-6">
+                    <h3 class="text-xl font-semibold mb-4">Dívidas por Cliente <i class="fas fa-users"></i></h3>
+                    <div class="flex flex-wrap gap-4 mb-6">
+                        <input type="text" id="filtro-cliente-debts" placeholder="Cliente" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar dívidas por cliente" />
+                        <select id="filtro-status-debts" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar dívidas por status">
+                            <option value="">Todos os Status</option>
+                            <option value="nao-pago">Não Pago</option>
+                        </select>
+                    </div>
+                    <div class="sales-table" id="client-debts"></div>
+                </div>
             </section>
 
             <section id="expenses" class="tab-content hidden" role="tabpanel" aria-hidden="true">
