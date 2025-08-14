@@ -63,6 +63,9 @@ const DOM = {
     prevExpensePage: document.getElementById("prev-expense-page"),
     nextExpensePage: document.getElementById("next-expense-page"),
     expensePageInfo: document.getElementById("expense-page-info"),
+    filterClientDebts: document.getElementById("filtro-cliente-debts"),
+    filterStatusDebts: document.getElementById("filtro-status-debts"),
+    totalSales: document.getElementById("total-sales"),
 };
 
 let expenseChart = null;
@@ -82,7 +85,7 @@ function renderExpenseChart() {
             labels: categories,
             datasets: [{
                 data: data,
-                backgroundColor: ["#28a745", "#007bff", "#1f1e1eff"],
+                backgroundColor: ["#28a745", "#007bff", "#dc3545"],
                 borderColor: "#ffffff",
                 borderWidth: 2,
             }],
@@ -328,6 +331,8 @@ function renderSalesTable() {
         filtered = filtered.filter(s => s.data <= DOM.filterEnd.value);
     }
 
+    DOM.totalSales.textContent = `Quantidade Vendida: ${filtered.length}`;
+
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
     const start = (currentPage - 1) * itemsPerPage;
     const end = start + itemsPerPage;
@@ -393,9 +398,35 @@ function renderSalesTable() {
     });
 }
 
-function groupByClient() {
-    let filteredSales = [...completedSales].filter(s => !s.pago);
+async function updateClientPaymentStatus(clientName, pago) {
+    try {
+        const salesToUpdate = completedSales.filter(s => s.nome === clientName && s.pago !== pago);
+        await Promise.all(
+            salesToUpdate.map(sale =>
+                updateDoc(doc(db, "sales", sale.id), { pago })
+            )
+        );
+        salesToUpdate.forEach(sale => {
+            sale.pago = pago;
+        });
+        renderSalesTable();
+        groupByClient();
+    } catch (error) {
+        console.error("Erro ao atualizar status do cliente:", error);
+        alert("Erro ao atualizar status de pagamento do cliente.");
+        throw error;
+    }
+}
 
+function groupByClient() {
+    let filteredSales = [...completedSales];
+
+    if (DOM.filterClientDebts.value) {
+        filteredSales = filteredSales.filter(s => s.nome.toLowerCase().includes(DOM.filterClientDebts.value.toLowerCase()));
+    }
+    if (DOM.filterStatusDebts.value === "nao-pago") {
+        filteredSales = filteredSales.filter(s => !s.pago);
+    }
     if (DOM.filterStart.value) {
         filteredSales = filteredSales.filter(s => s.data >= DOM.filterStart.value);
     }
@@ -404,12 +435,14 @@ function groupByClient() {
     }
 
     const groupedByClient = filteredSales.reduce((acc, sale) => {
-        const { nome, qtd, total, telefone } = sale;
+        const { nome, qtd, total, telefone, pago } = sale;
         if (!acc[nome]) {
-            acc[nome] = { quantidade: 0, total: 0, telefone: telefone || "N/A" };
+            acc[nome] = { quantidade: 0, total: 0, telefone: telefone || "N/A", allPaid: true, anyUnpaid: false };
         }
         acc[nome].quantidade += qtd;
         acc[nome].total += total;
+        acc[nome].allPaid = acc[nome].allPaid && pago;
+        acc[nome].anyUnpaid = acc[nome].anyUnpaid || !pago;
         return acc;
     }, {});
 
@@ -421,26 +454,46 @@ function renderClientDebts(groupedData) {
     if (!clientDebtsDiv) return;
 
     const header = `
-        <div class="grid grid-cols-4 gap-4 bg-gray-800 text-white p-3 rounded-t-lg font-semibold">
+        <div class="grid grid-cols-5 gap-4 bg-gray-800 text-white p-3 rounded-t-lg font-semibold">
             <div>Cliente</div>
             <div>Telefone</div>
             <div>Quantidade Total</div>
             <div>Valor Total Devido</div>
+            <div>Status</div>
         </div>`;
 
     const rows = Object.entries(groupedData).length
         ? Object.entries(groupedData)
-            .map(([nome, { quantidade, total, telefone }]) => `
-                <div class="grid grid-cols-4 gap-4 p-3 bg-red-50 border-b">
+            .map(([nome, { quantidade, total, telefone, allPaid }]) => `
+                <div class="grid grid-cols-5 gap-4 p-3 ${allPaid ? "bg-green-50" : "bg-red-50"} border-b">
                     <div>${nome}</div>
                     <div>${telefone}</div>
                     <div>${quantidade}</div>
                     <div>R$ ${total.toFixed(2)}</div>
+                    <div>
+                        <label class="status-toggle">
+                            <input type="checkbox" data-client="${nome}" ${allPaid ? "checked" : ""} aria-label="Marcar dívidas de ${nome} como pagas" />
+                            <span class="toggle-slider ${allPaid ? "paid" : "unpaid"}"></span>
+                            <span class="toggle-text">${allPaid ? "Pago" : "Não Pago"}</span>
+                        </label>
+                    </div>
                 </div>`)
             .join("")
         : `<div class="p-3 text-center"><em>Nenhum cliente com dívidas no período selecionado</em></div>`;
 
     clientDebtsDiv.innerHTML = header + rows;
+
+    clientDebtsDiv.querySelectorAll("input[type=checkbox]").forEach(checkbox => {
+        checkbox.addEventListener("change", async e => {
+            const clientName = e.target.dataset.client;
+            const pago = e.target.checked;
+            try {
+                await updateClientPaymentStatus(clientName, pago);
+            } catch (error) {
+                e.target.checked = !pago;
+            }
+        });
+    });
 }
 
 async function loadExpenses() {
@@ -746,7 +799,10 @@ const debouncedRenderClientDebts = debounce(groupByClient, 300);
     DOM.filterEnd,
     DOM.filterStatus,
     DOM.filterProduct,
-].forEach(input => input.addEventListener("input", debouncedRenderSales));
+].forEach(input => input.addEventListener("input", () => {
+    debouncedRenderSales();
+    debouncedRenderClientDebts();
+}));
 
 [
     DOM.filterECategoria,
@@ -755,7 +811,12 @@ const debouncedRenderClientDebts = debounce(groupByClient, 300);
     DOM.filterEEnd,
 ].forEach(input => input.addEventListener("input", debouncedRenderExpenses));
 
-[DOM.filterStart, DOM.filterEnd].forEach(input => input.addEventListener("input", debouncedRenderClientDebts));
+[
+    DOM.filterClientDebts,
+    DOM.filterStatusDebts,
+    DOM.filterStart,
+    DOM.filterEnd,
+].forEach(input => input.addEventListener("input", debouncedRenderClientDebts));
 
 renderProducts();
 loadSales();
