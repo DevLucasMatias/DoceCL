@@ -13,11 +13,11 @@ body {
 }
 
 header.banner {
-    background: url('a.jpg') no-repeat center center/cover;
+    background: url('Brigadeiro.jpeg.jpg') no-repeat center center/cover;
     height: 200px;
     position: relative;
     text-align: center;
-    color: rgb(255, 255, 255);
+    color: rgba(255, 255, 255, 0.158);
 }
 .remover-venda-btn {
     background-color: #dc3545;
@@ -104,8 +104,8 @@ header.banner {
 
 .dashboard-content {
     flex-grow: 1;
-    /* background: url('b.jpg') no-repeat center center/cover; */
-    background-color: #0000004b;
+     background: url('b.jpg') no-repeat center center/cover; 
+    /* background-color: #aa27274b; */
     padding: 20px;
 }
 
