@@ -1,8 +1,7 @@
-// Firebase Modular SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Firebase Config
+// Firebase Config (move to backend in production)
 const firebaseConfig = {
     apiKey: "AIzaSyCFGN-HlN620RFrFAw2ty-KU4gRWrWXtIE",
     authDomain: "brigadeirospainel.firebaseapp.com",
@@ -15,16 +14,17 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Dados iniciais
 const PRODUCTS = [
-    { id: "brigadeiro-tradicional", nome: "Brigadeiro Tradicional", preco: 2.5, imagem: "Brigadeiro.jpg" },
+    { id: "brigadeiro-tradicional", nome: "Brigadeiro Tradicional", preco: 2.5, imagem: "doce.jpg" },
 ];
 
 let currentSale = [];
 let currentExpenses = [];
 let completedSales = [];
+let currentPage = 1;
+let expensePage = 1;
+const itemsPerPage = 10;
 
-// Cache DOM
 const DOM = {
     produtosDiv: document.getElementById("produtos"),
     formSale: document.getElementById("form-venda"),
@@ -57,9 +57,14 @@ const DOM = {
     modalDespesaDetalhes: document.getElementById("modal-despesa-detalhes"),
     confirmarDespesa: document.getElementById("confirmar-despesa"),
     cancelarDespesa: document.getElementById("cancelar-despesa"),
+    prevPage: document.getElementById("prev-page"),
+    nextPage: document.getElementById("next-page"),
+    pageInfo: document.getElementById("page-info"),
+    prevExpensePage: document.getElementById("prev-expense-page"),
+    nextExpensePage: document.getElementById("next-expense-page"),
+    expensePageInfo: document.getElementById("expense-page-info"),
 };
 
-// Chart.js for Expense Visualization
 let expenseChart = null;
 function renderExpenseChart() {
     const ctx = document.getElementById("expense-chart").getContext("2d");
@@ -77,7 +82,7 @@ function renderExpenseChart() {
             labels: categories,
             datasets: [{
                 data: data,
-                backgroundColor: ["#28a745", "#007bff", "#dc3545"],
+                backgroundColor: ["#28a745", "#007bff", "#1f1e1eff"],
                 borderColor: "#ffffff",
                 borderWidth: 2,
             }],
@@ -92,7 +97,6 @@ function renderExpenseChart() {
     });
 }
 
-// Debounce function
 function debounce(func, wait) {
     let timeout;
     return (...args) => {
@@ -101,24 +105,22 @@ function debounce(func, wait) {
     };
 }
 
-// Renderização dos produtos
 function renderProducts() {
     DOM.produtosDiv.innerHTML = "";
     PRODUCTS.forEach(({ id, nome, preco, imagem }) => {
         const card = document.createElement("div");
-        card.className = "product-card";
+        card.className = "bg-white p-4 rounded-lg shadow hover:shadow-lg transition";
         card.innerHTML = `
-            <img src="${imagem}" alt="${nome}" />
-            <h4>${nome}</h4>
-            <p>R$ ${preco.toFixed(2)}</p>
-            <button data-id="${id}" type="button" aria-label="Adicionar ${nome} à venda">Adicionar</button>
+            <img src="${imagem}" alt="${nome}" class="w-full h-32 object-cover rounded-t-lg" />
+            <h4 class="text-lg font-semibold mt-2">${nome}</h4>
+            <p class="text-pink-600 font-medium">R$ ${preco.toFixed(2)}</p>
+            <button data-id="${id}" type="button" class="mt-2 bg-pink-600 text-white py-1 px-3 rounded-lg hover:bg-pink-700" aria-label="Adicionar ${nome} à venda">Adicionar</button>
         `;
         card.querySelector("button").addEventListener("click", () => addToSale({ id, nome, preco }));
         DOM.produtosDiv.appendChild(card);
     });
 }
 
-// Adiciona produto à venda atual
 function addToSale(prod) {
     const item = currentSale.find(i => i.id === prod.id);
     if (item) {
@@ -129,17 +131,16 @@ function addToSale(prod) {
     renderCurrentSale();
 }
 
-// Exibe resumo da venda atual
 function renderCurrentSale() {
     if (!currentSale.length) {
-        DOM.vendaAtualDiv.innerHTML = "<em>Sem itens</em>";
+        DOM.vendaAtualDiv.innerHTML = '<p class="text-gray-500 italic">Sem itens</p>';
         return;
     }
     DOM.vendaAtualDiv.innerHTML = currentSale
         .map(({ nome, qtd, preco }, index) => `
-            <div class="order-item">
+            <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow mb-2">
                 <span>${nome} x${qtd} — R$ ${(qtd * preco).toFixed(2)}</span>
-                <button class="remover-btn" data-index="${index}" aria-label="Remover ${nome} da venda">Remover</button>
+                <button class="remover-btn bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700" data-index="${index}" aria-label="Remover ${nome} da venda">Remover</button>
             </div>
         `)
         .join("");
@@ -153,7 +154,6 @@ function renderCurrentSale() {
     });
 }
 
-// Envio do formulário de nova venda
 DOM.formSale.addEventListener("submit", async e => {
     e.preventDefault();
     if (!currentSale.length) {
@@ -170,14 +170,13 @@ DOM.formSale.addEventListener("submit", async e => {
         return;
     }
 
-    // Validar e formatar a data
     let formattedDate;
     try {
         const dateObj = new Date(data);
         if (isNaN(dateObj.getTime())) {
             throw new Error("Data inválida");
         }
-        formattedDate = dateObj.toISOString().split("T")[0]; // Garante formato YYYY-MM-DD
+        formattedDate = dateObj.toISOString().split("T")[0];
     } catch (error) {
         alert("Data inválida. Por favor, selecione uma data válida.");
         return;
@@ -188,7 +187,7 @@ DOM.formSale.addEventListener("submit", async e => {
         <p><strong>Telefone:</strong> ${telefone}</p>
         <p><strong>Data:</strong> ${new Date(formattedDate).toLocaleDateString("pt-BR")}</p>
         <p><strong>Itens:</strong></p>
-        <ul>${currentSale.map(item => `<li>${item.nome} x${item.qtd} - R$ ${(item.qtd * item.preco).toFixed(2)}</li>`).join("")}</ul>
+        <ul class="list-disc pl-5">${currentSale.map(item => `<li>${item.nome} x${item.qtd} - R$ ${(item.qtd * item.preco).toFixed(2)}</li>`).join("")}</ul>
         <p><strong>Total:</strong> R$ ${currentSale.reduce((sum, item) => sum + item.qtd * item.preco, 0).toFixed(2)}</p>
     `;
     DOM.modalVenda.classList.add("active");
@@ -225,7 +224,6 @@ DOM.formSale.addEventListener("submit", async e => {
     DOM.cancelarVenda.onclick = () => DOM.modalVenda.classList.remove("active");
 });
 
-// Envio do formulário de despesas
 DOM.formExpense.addEventListener("submit", async e => {
     e.preventDefault();
     const categoria = DOM.formExpense.querySelector("#categoria-despesa").value;
@@ -238,14 +236,13 @@ DOM.formExpense.addEventListener("submit", async e => {
         return;
     }
 
-    // Validar e formatar a data
     let formattedDate;
     try {
         const dateObj = new Date(data);
         if (isNaN(dateObj.getTime())) {
             throw new Error("Data inválida");
         }
-        formattedDate = dateObj.toISOString().split("T")[0]; // Garante formato YYYY-MM-DD
+        formattedDate = dateObj.toISOString().split("T")[0];
     } catch (error) {
         alert("Data inválida. Por favor, selecione uma data válida.");
         return;
@@ -282,11 +279,11 @@ DOM.formExpense.addEventListener("submit", async e => {
     DOM.cancelarDespesa.onclick = () => DOM.modalDespesa.classList.remove("active");
 });
 
-// Carrega vendas do Firestore
 async function loadSales() {
     try {
         const snapshot = await getDocs(collection(db, "sales"));
         completedSales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        currentPage = 1;
         renderSalesTable();
         groupByClient();
     } catch (error) {
@@ -295,7 +292,6 @@ async function loadSales() {
     }
 }
 
-// Função para remover uma venda
 async function removeSale(id) {
     if (!confirm("Tem certeza que deseja remover esta venda? Esta ação não pode ser desfeita.")) {
         return;
@@ -312,7 +308,6 @@ async function removeSale(id) {
     }
 }
 
-// Renderiza tabela de vendas filtrada
 function renderSalesTable() {
     let filtered = [...completedSales];
 
@@ -333,16 +328,25 @@ function renderSalesTable() {
         filtered = filtered.filter(s => s.data <= DOM.filterEnd.value);
     }
 
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const paginatedSales = filtered.slice(start, end);
+
+    DOM.pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+    DOM.prevPage.disabled = currentPage === 1;
+    DOM.nextPage.disabled = currentPage === totalPages;
+
     const header = `
-        <div class="table-header">
+        <div class="grid grid-cols-8 gap-4 bg-gray-800 text-white p-3 rounded-t-lg font-semibold">
             <div>Cliente</div><div>Produto</div><div>Quantidade</div><div>Data</div><div>Telefone</div><div>Status</div><div>Valor</div><div>Ações</div>
         </div>`;
 
-    const rows = filtered.length
-        ? filtered
+    const rows = paginatedSales.length
+        ? paginatedSales
             .map(
                 s => `
-                <div class="table-row ${s.pago ? "pago" : "nao-pago"}">
+                <div class="grid grid-cols-8 gap-4 p-3 ${s.pago ? "bg-green-50" : "bg-red-50"} border-b">
                     <div>${s.nome}</div>
                     <div>${s.produto}</div>
                     <div>${s.qtd}</div>
@@ -357,12 +361,12 @@ function renderSalesTable() {
                     </div>
                     <div>R$ ${s.total.toFixed(2)}</div>
                     <div>
-                        <button class="remover-venda-btn" data-id="${s.id}" aria-label="Remover venda de ${s.nome}">Remover</button>
+                        <button class="remover-venda-btn bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700" data-id="${s.id}" aria-label="Remover venda de ${s.nome}">Remover</button>
                     </div>
                 </div>`
             )
             .join("")
-        : `<div class="table-row"><div colspan="8"><em>Nenhuma venda encontrada</em></div></div>`;
+        : `<div class="p-3 text-center"><em>Nenhuma venda encontrada</em></div>`;
 
     DOM.compradoresDiv.innerHTML = header + rows;
 
@@ -389,7 +393,6 @@ function renderSalesTable() {
     });
 }
 
-// Agrupa vendas não pagas por cliente
 function groupByClient() {
     let filteredSales = [...completedSales].filter(s => !s.pago);
 
@@ -413,16 +416,12 @@ function groupByClient() {
     renderClientDebts(groupedByClient);
 }
 
-// Renderiza a tabela de dívidas por cliente
 function renderClientDebts(groupedData) {
     const clientDebtsDiv = document.getElementById("client-debts");
-    if (!clientDebtsDiv) {
-        console.error("Elemento #client-debts não encontrado no DOM.");
-        return;
-    }
+    if (!clientDebtsDiv) return;
 
     const header = `
-        <div class="table-header">
+        <div class="grid grid-cols-4 gap-4 bg-gray-800 text-white p-3 rounded-t-lg font-semibold">
             <div>Cliente</div>
             <div>Telefone</div>
             <div>Quantidade Total</div>
@@ -432,23 +431,23 @@ function renderClientDebts(groupedData) {
     const rows = Object.entries(groupedData).length
         ? Object.entries(groupedData)
             .map(([nome, { quantidade, total, telefone }]) => `
-                <div class="table-row nao-pago">
+                <div class="grid grid-cols-4 gap-4 p-3 bg-red-50 border-b">
                     <div>${nome}</div>
                     <div>${telefone}</div>
                     <div>${quantidade}</div>
                     <div>R$ ${total.toFixed(2)}</div>
                 </div>`)
             .join("")
-        : `<div class="table-row"><div colspan="4"><em>Nenhum cliente com dívidas no período selecionado</em></div></div>`;
+        : `<div class="p-3 text-center"><em>Nenhum cliente com dívidas no período selecionado</em></div>`;
 
     clientDebtsDiv.innerHTML = header + rows;
 }
 
-// Carrega despesas do Firestore
 async function loadExpenses() {
     try {
         const snapshot = await getDocs(collection(db, "expenses"));
         currentExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        expensePage = 1;
         renderExpenseTable();
         renderExpenseChart();
     } catch (error) {
@@ -457,7 +456,6 @@ async function loadExpenses() {
     }
 }
 
-// Renderiza tabela de despesas com filtro
 function renderExpenseTable() {
     let filtered = [...currentExpenses];
 
@@ -474,16 +472,25 @@ function renderExpenseTable() {
         filtered = filtered.filter(e => e.data <= DOM.filterEEnd.value);
     }
 
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const start = (expensePage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const paginatedExpenses = filtered.slice(start, end);
+
+    DOM.expensePageInfo.textContent = `Página ${expensePage} de ${totalPages}`;
+    DOM.prevExpensePage.disabled = expensePage === 1;
+    DOM.nextExpensePage.disabled = expensePage === totalPages;
+
     const header = `
-        <div class="table-header">
+        <div class="grid grid-cols-4 gap-4 bg-gray-800 text-white p-3 rounded-t-lg font-semibold">
             <div>Categoria</div><div>Descrição</div><div>Valor</div><div>Data</div>
         </div>`;
 
-    const rows = filtered.length
-        ? filtered
+    const rows = paginatedExpenses.length
+        ? paginatedExpenses
             .map(
                 e => `
-                <div class="table-row expense-row">
+                <div class="grid grid-cols-4 gap-4 p-3 bg-white border-b">
                     <div>${e.categoria}</div>
                     <div>${e.descricao}</div>
                     <div>R$ ${e.valor.toFixed(2)}</div>
@@ -491,12 +498,11 @@ function renderExpenseTable() {
                 </div>`
             )
             .join("")
-        : `<div class="table-row"><div colspan="4"><em>Nenhuma despesa encontrada</em></div></div>`;
+        : `<div class="p-3 text-center"><em>Nenhuma despesa encontrada</em></div>`;
 
     DOM.despesasDiv.innerHTML = header + rows;
 }
 
-// Exportar dados (vendas)
 DOM.exportData.addEventListener("click", () => {
     const data = completedSales.map(s => ({
         Cliente: s.nome,
@@ -516,7 +522,6 @@ DOM.exportData.addEventListener("click", () => {
     try {
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        if (!wb) throw new Error("Falha ao criar o workbook.");
         XLSX.utils.book_append_sheet(wb, ws, "Vendas");
         XLSX.writeFile(wb, "vendas.xlsx");
     } catch (error) {
@@ -525,7 +530,6 @@ DOM.exportData.addEventListener("click", () => {
     }
 });
 
-// Exportar dados (despesas)
 DOM.exportExpensesBtn.addEventListener("click", () => {
     const data = currentExpenses.map(e => ({
         Categoria: e.categoria,
@@ -542,7 +546,6 @@ DOM.exportExpensesBtn.addEventListener("click", () => {
     try {
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        if (!wb) throw new Error("Falha ao criar o workbook.");
         XLSX.utils.book_append_sheet(wb, ws, "Despesas");
         XLSX.writeFile(wb, "despesas.xlsx");
     } catch (error) {
@@ -551,7 +554,6 @@ DOM.exportExpensesBtn.addEventListener("click", () => {
     }
 });
 
-// Importar dados (vendas)
 DOM.importDataBtn.addEventListener("click", () => DOM.importDataInput.click());
 DOM.importDataInput.addEventListener("change", async e => {
     const file = e.target.files[0];
@@ -583,7 +585,7 @@ DOM.importDataInput.addEventListener("change", async e => {
                     }
                     formattedDate = dateObj.toISOString().split("T")[0];
                 } catch (error) {
-                    formattedDate = new Date().toISOString().split("T")[0]; // Data padrão se inválida
+                    formattedDate = new Date().toISOString().split("T")[0];
                 }
                 return addDoc(collection(db, "sales"), {
                     nome: item.Cliente || "Desconhecido",
@@ -606,7 +608,6 @@ DOM.importDataInput.addEventListener("change", async e => {
     }
 });
 
-// Importar dados (despesas)
 DOM.importExpensesBtn.addEventListener("click", () => DOM.importExpensesInput.click());
 DOM.importExpensesInput.addEventListener("change", async e => {
     const file = e.target.files[0];
@@ -638,7 +639,7 @@ DOM.importExpensesInput.addEventListener("change", async e => {
                     }
                     formattedDate = dateObj.toISOString().split("T")[0];
                 } catch (error) {
-                    formattedDate = new Date().toISOString().split("T")[0]; // Data padrão se inválida
+                    formattedDate = new Date().toISOString().split("T")[0];
                 }
                 return addDoc(collection(db, "expenses"), {
                     categoria: item.Categoria || "Outros",
@@ -658,10 +659,10 @@ DOM.importExpensesInput.addEventListener("change", async e => {
     }
 });
 
-// Controle das abas
 function activateTab(tabId) {
     DOM.tabContents.forEach(content => {
         const active = content.id === tabId;
+        content.classList.toggle("hidden", !active);
         content.classList.toggle("active", active);
         content.setAttribute("aria-hidden", !active);
         content.tabIndex = active ? 0 : -1;
@@ -670,6 +671,8 @@ function activateTab(tabId) {
     DOM.tabs.forEach(tab => {
         const active = tab.dataset.tab === tabId;
         tab.classList.toggle("active", active);
+        tab.classList.toggle("bg-gray-700", !active);
+        tab.classList.toggle("bg-gray-600", active);
         tab.setAttribute("aria-selected", active);
         tab.tabIndex = active ? 0 : -1;
         if (active) tab.focus();
@@ -690,7 +693,49 @@ DOM.tabs.forEach(tab => {
     });
 });
 
-// Adiciona listeners aos filtros com debounce
+DOM.prevPage.addEventListener("click", () => {
+    if (currentPage > 1) {
+        currentPage--;
+        renderSalesTable();
+    }
+});
+
+DOM.nextPage.addEventListener("click", () => {
+    const filtered = completedSales.filter(s => {
+        if (DOM.filterClient.value && !s.nome.toLowerCase().includes(DOM.filterClient.value.toLowerCase())) return false;
+        if (DOM.filterProduct.value && !s.produto.toLowerCase().includes(DOM.filterProduct.value.toLowerCase())) return false;
+        if (DOM.filterStatus.value && s.pago !== (DOM.filterStatus.value === "pago")) return false;
+        if (DOM.filterStart.value && s.data < DOM.filterStart.value) return false;
+        if (DOM.filterEnd.value && s.data > DOM.filterEnd.value) return false;
+        return true;
+    });
+    if (currentPage < Math.ceil(filtered.length / itemsPerPage)) {
+        currentPage++;
+        renderSalesTable();
+    }
+});
+
+DOM.prevExpensePage.addEventListener("click", () => {
+    if (expensePage > 1) {
+        expensePage--;
+        renderExpenseTable();
+    }
+});
+
+DOM.nextExpensePage.addEventListener("click", () => {
+    const filtered = currentExpenses.filter(e => {
+        if (DOM.filterECategoria.value && !e.categoria.toLowerCase().includes(DOM.filterECategoria.value.toLowerCase())) return false;
+        if (DOM.filterEDescricao.value && !e.descricao.toLowerCase().includes(DOM.filterEDescricao.value.toLowerCase())) return false;
+        if (DOM.filterEStart.value && e.data < DOM.filterEStart.value) return false;
+        if (DOM.filterEEnd.value && e.data > DOM.filterEEnd.value) return false;
+        return true;
+    });
+    if (expensePage < Math.ceil(filtered.length / itemsPerPage)) {
+        expensePage++;
+        renderExpenseTable();
+    }
+});
+
 const debouncedRenderSales = debounce(renderSalesTable, 300);
 const debouncedRenderExpenses = debounce(renderExpenseTable, 300);
 const debouncedRenderClientDebts = debounce(groupByClient, 300);
@@ -712,10 +757,6 @@ const debouncedRenderClientDebts = debounce(groupByClient, 300);
 
 [DOM.filterStart, DOM.filterEnd].forEach(input => input.addEventListener("input", debouncedRenderClientDebts));
 
-// Adiciona listener ao botão de agrupar por cliente
-document.getElementById("group-by-client")?.addEventListener("click", groupByClient);
-
-// Inicialização
 renderProducts();
 loadSales();
 loadExpenses();

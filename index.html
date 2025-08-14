@@ -4,116 +4,214 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brigadeiros Gourmet - Painel de Controle</title>
-    <link rel="stylesheet" href="style.css" />
     <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
     <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .status-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-toggle input[type="checkbox"] {
+            display: none;
+        }
+        .status-toggle .toggle-slider {
+            position: relative;
+            width: 40px;
+            height: 20px;
+            background-color: #ccc;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .status-toggle .toggle-slider.paid {
+            background-color: #28a745;
+        }
+        .status-toggle .toggle-slider.unpaid {
+            background-color: #dc3545;
+        }
+        .status-toggle .toggle-slider::after {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+        .status-toggle input[type="checkbox"]:checked + .toggle-slider::after {
+            transform: translateX(20px);
+        }
+    </style>
 </head>
-<body>
-    <header class="banner">
-        <div class="banner-overlay">
-            <h1>Brigadeiros Gourmet <i class="fas fa-birthday-cake"></i></h1>
-            <p>Lucas & Cleice</p>
+<body class="bg-gray-100 text-gray-800 font-sans">
+    <header class="bg-cover bg-center text-white py-12 text-center relative" style="background-image: url('doce.jpg') ">
+        <div class="absolute inset-0 bg-black opacity-50"></div>
+        <div class="relative z-10">
+            <h1 class="text-4xl md:text-5xl font-bold mb-2">Brigadeiros Gourmet <i class="fas fa-birthday-cake"></i></h1>
+            <p class="text-lg md:text-xl">Lucas & Cleice</p>
         </div>
     </header>
 
-    <div class="dashboard">
-        <aside class="side-menu">
-            <div class="logo">
-                <h2>CL <i class="fas fa-cookie-bite"></i></h2>
+    <div class="flex min-h-screen">
+        <aside class="w-64 bg-gray-800 text-white p-6 flex flex-col">
+            <div class="text-2xl font-semibold mb-8 text-center">
+                Menu <i class="fas fa-cookie-bite"></i>
             </div>
-            <nav class="menu-tabs" role="tablist">
-                <button class="tab active" data-tab="new-sale" role="tab" aria-selected="true" aria-controls="new-sale"><i class="fas fa-shopping-cart"></i> Nova Venda</button>
-                <button class="tab" data-tab="sales-history" role="tab" aria-selected="false" aria-controls="sales-history"><i class="fas fa-history"></i> Histórico</button>
-                <button class="tab" data-tab="expenses" role="tab" aria-selected="false" aria-controls="expenses"><i class="fas fa-money-bill"></i> Despesas</button>
+            <nav class="space-y-2" role="tablist">
+                <button class="tab active w-full text-left py-3 px-4 rounded-lg bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500" data-tab="new-sale" role="tab" aria-selected="true" aria-controls="new-sale">
+                    <i class="fas fa-shopping-cart mr-2"></i> Nova Venda
+                </button>
+                <button class="tab w-full text-left py-3 px-4 rounded-lg bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500" data-tab="sales-history" role="tab" aria-selected="false" aria-controls="sales-history">
+                    <i class="fas fa-history mr-2"></i> Histórico
+                </button>
+                <button class="tab w-full text-left py-3 px-4 rounded-lg bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500" data-tab="expenses" role="tab" aria-selected="false" aria-controls="expenses">
+                    <i class="fas fa-money-bill mr-2"></i> Despesas
+                </button>
             </nav>
         </aside>
 
-        <main class="dashboard-content">
+        <main class="flex-1 p-6 bg-white">
             <section id="new-sale" class="tab-content active" role="tabpanel" aria-hidden="false">
-                <h2>Nova Venda <i class="fas fa-shopping-cart"></i></h2>
-                <div class="product-showcase" id="produtos"></div>
-                <div class="order-summary" id="venda-atual"></div>
-                <form id="form-venda" class="order-form">
-                    <h3>Dados do Cliente <i class="fas fa-user"></i></h3>
-                    <input type="text" id="nome" placeholder="Nome" aria-label="Nome do cliente" aria-required="true" required />
-                    <input type="tel" id="telefone" placeholder="Telefone" aria-label="Telefone do cliente" />
-                    <input type="date" id="data" aria-label="Data da venda" aria-required="true" required />
-                    <button type="submit">Registrar Venda <i class="fas fa-check"></i></button>
+                <h2 class="text-2xl font-semibold mb-4">Nova Venda <i class="fas fa-shopping-cart"></i></h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6" id="produtos"></div>
+                <div class="bg-gray-50 p-4 rounded-lg shadow mb-6" id="venda-atual"></div>
+                <form id="form-venda" class="bg-gray-50 p-6 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold mb-4">Dados do Cliente <i class="fas fa-user"></i></h3>
+                    <input type="text" id="nome" placeholder="Nome" class="w-full p-2 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Nome do cliente" aria-required="true" required />
+                    <input type="tel" id="telefone" placeholder="Telefone" class="w-full p-2 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Telefone do cliente" />
+                    <input type="date" id="data" class="w-full p-2 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Data da venda" aria-required="true" required />
+                    <button type="submit" class="bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500">
+                        Registrar Venda <i class="fas fa-check"></i>
+                    </button>
                 </form>
             </section>
 
-            <section id="sales-history" class="tab-content" role="tabpanel" aria-hidden="true">
-                <h2>Histórico de Vendas <i class="fas fa-list"></i></h2>
-                <div class="filter-bar">
-                    <input type="text" id="filtro-cliente" placeholder="Cliente" aria-label="Filtrar por cliente" />
-                    <input type="date" id="filtro-data-inicio" aria-label="Data inicial" />
-                    <input type="date" id="filtro-data-fim" aria-label="Data final" />
-                    <select id="filtro-status" aria-label="Filtrar por status">
+            <section id="sales-history" class="tab-content hidden" role="tabpanel" aria-hidden="true">
+                <h2 class="text-2xl font-semibold mb-4">Histórico de Vendas <i class="fas fa-list"></i></h2>
+                <div class="flex flex-wrap gap-4 mb-6">
+                    <input type="text" id="filtro-cliente" placeholder="Cliente" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar por cliente" />
+                    <input type="date" id="filtro-data-inicio" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Data inicial" />
+                    <input type="date" id="filtro-data-fim" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Data final" />
+                    <select id="filtro-status" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar por status">
                         <option value="">Todos os Status</option>
                         <option value="pago">Pago</option>
                         <option value="nao-pago">Não Pago</option>
                     </select>
-                    <input type="text" id="filtro-produto" placeholder="Produto" aria-label="Filtrar por produto" />
-                    <button id="export-data" class="filter-action">Exportar <i class="fas fa-download"></i></button>
-                    <input type="file" id="import-data" accept=".json" style="display: none;" aria-label="Importar dados de vendas" />
-                    <button id="import-data-btn" class="filter-action">Importar <i class="fas fa-upload"></i></button>
-                    <!-- <button id="group-by-client" class="filter-action">Agrupar Dívidas por Cliente <i class="fas fa-users"></i></button> -->
+                    <input type="text" id="filtro-produto" placeholder="Produto" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar por produto" />
+                    <button id="export-data" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        Exportar <i class="fas fa-download"></i>
+                    </button>
+                    <input type="file" id="import-data" accept=".json,.xlsx" class="hidden" aria-label="Importar dados de vendas" />
+                    <button id="import-data-btn" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        Importar <i class="fas fa-upload"></i>
+                    </button>
                 </div>
-                <div class="sales-table" id="compradores"></div>
-                <div class="sales-table" id="client-debts"></div>
+                <div class="overflow-x-auto">
+                    <div class="sales-table" id="compradores"></div>
+                    <div class="flex justify-between mt-4">
+                        <button id="prev-page" class="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 disabled:opacity-50" disabled> Anterior </button>
+                        <span id="page-info" class="text-lg">Página 1</span>
+                        <button id="next-page" class="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700"> Próximo </button>
+                    </div>
+                </div>
+                <div class="mt-6 sales-table" id="client-debts"></div>
             </section>
 
-            <section id="expenses" class="tab-content" role="tabpanel" aria-hidden="true">
-                <h2>Despesas <i class="fas fa-money-bill"></i></h2>
-                <form id="form-despesa" class="expense-form">
-                    <h3>Registrar Despesa <i class="fas fa-plus"></i></h3>
-                    <select id="categoria-despesa" aria-label="Categoria da despesa" aria-required="true" required>
+            <section id="expenses" class="tab-content hidden" role="tabpanel" aria-hidden="true">
+                <h2 class="text-2xl font-semibold mb-4">Despesas <i class="fas fa-money-bill"></i></h2>
+                <form id="form-despesa" class="bg-gray-50 p-6 rounded-lg shadow mb-6">
+                    <h3 class="text-xl font-semibold mb-4">Registrar Despesa <i class="fas fa-plus"></i></h3>
+                    <select id="categoria-despesa" class="w-full p-2 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Categoria da despesa" aria-required="true" required>
                         <option value="">Selecione a Categoria</option>
                         <option value="Uber">Uber</option>
                         <option value="Materiais">Materiais</option>
                         <option value="Outros">Outros</option>
                     </select>
-                    <input type="text" id="descricao-despesa" placeholder="Descrição" aria-label="Descrição da despesa" aria-required="true" required />
-                    <input type="number" id="valor-despesa" placeholder="Valor (R$)" step="0.01" min="0" aria-label="Valor da despesa" aria-required="true" required />
-                    <input type="date" id="data-despesa" aria-label="Data da despesa" aria-required="true" required />
-                    <button type="submit">Registrar Despesa <i class="fas fa-check"></i></button>
+                    <input type="text" id="descricao-despesa" placeholder="Descrição" class="w-full p-2 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Descrição da despesa" aria-required="true" required />
+                    <input type="number" id="valor-despesa" placeholder="Valor (R$)" step="0.01" min="0" class="w-full p-2 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Valor da despesa" aria-required="true" required />
+                    <input type="date" id="data-despesa" class="w-full p-2 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Data da despesa" aria-required="true" required />
+                    <button type="submit" class="bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500">
+                        Registrar Despesa <i class="fas fa-check"></i>
+                    </button>
                 </form>
-                <div class="filter-bar">
-                    <input type="text" id="filtro-despesa-categoria" placeholder="Categoria" aria-label="Filtrar por categoria de despesa" />
-                    <input type="date" id="filtro-despesa-data-inicio" aria-label="Data inicial da despesa" />
-                    <input type="date" id="filtro-despesa-data-fim" aria-label="Data final da despesa" />
-                    <input type="text" id="filtro-despesa-descricao" placeholder="Descrição" aria-label="Filtrar por descrição da despesa" />
-                    <button id="export-expenses" class="filter-action">Exportar <i class="fas fa-download"></i></button>
-                    <input type="file" id="import-expenses" accept=".json" style="display: none;" aria-label="Importar dados de despesas" />
-                    <button id="import-expenses-btn" class="filter-action">Importar <i class="fas fa-upload"></i></button>
+                <div class="flex flex-wrap gap-4 mb-6">
+                    <input type="text" id="filtro-despesa-categoria" placeholder="Categoria" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar por categoria de despesa" />
+                    <input type="date" id="filtro-despesa-data-inicio" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Data inicial da despesa" />
+                    <input type="date" id="filtro-despesa-data-fim" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Data final da despesa" />
+                    <input type="text" id="filtro-despesa-descricao" placeholder="Descrição" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar por descrição da despesa" />
+                    <button id="export-expenses" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        Exportar <i class="fas fa-download"></i>
+                    </button>
+                    <input type="file" id="import-expenses" accept=".json,.xlsx" class="hidden" aria-label="Importar dados de despesas" />
+                    <button id="import-expenses-btn" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        Importar <i class="fas fa-upload"></i>
+                    </button>
                 </div>
-                <canvas id="expense-chart" style="max-height: 300px; margin-bottom: 20px;"></canvas>
-                <div class="sales-table" id="despesas"></div>
+                <canvas id="expense-chart" class="max-h-96 mb-6"></canvas>
+                <div class="overflow-x-auto">
+                    <div class="sales-table" id="despesas"></div>
+                    <div class="flex justify-between mt-4">
+                        <button id="prev-expense-page" class="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 disabled:opacity-50" disabled> Anterior </button>
+                        <span id="expense-page-info" class="text-lg">Página 1</span>
+                        <button id="next-expense-page" class="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700"> Próximo </button>
+                    </div>
+                </div>
             </section>
         </main>
     </div>
 
     <div id="modal-confirmacao" class="modal" role="dialog" aria-labelledby="modal-venda-title">
-        <div class="modal-content">
-            <h3 id="modal-venda-title">Confirmação de Venda <i class="fas fa-thumbs-up"></i></h3>
-            <div id="modal-venda-detalhes"></div>
-            <button id="confirmar-venda" class="modal-action">Confirmar <i class="fas fa-check"></i></button>
-            <button id="cancelar-venda" class="modal-action cancel">Cancelar <i class="fas fa-times"></i></button>
+        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 id="modal-venda-title" class="text-xl font-semibold mb-4">Confirmação de Venda <i class="fas fa-thumbs-up"></i></h3>
+            <div id="modal-venda-detalhes" class="mb-4"></div>
+            <div class="flex justify-end gap-4">
+                <button id="confirmar-venda" class="bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    Confirmar <i class="fas fa-check"></i>
+                </button>
+                <button id="cancelar-venda" class="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    Cancelar <i class="fas fa-times"></i>
+                </button>
+            </div>
         </div>
     </div>
 
     <div id="modal-confirmacao-despesa" class="modal" role="dialog" aria-labelledby="modal-despesa-title">
-        <div class="modal-content">
-            <h3 id="modal-despesa-title">Confirmação de Despesa <i class="fas fa-money-bill"></i></h3>
-            <div id="modal-despesa-detalhes"></div>
-            <button id="confirmar-despesa" class="modal-action">Confirmar <i class="fas fa-check"></i></button>
-            <button id="cancelar-despesa" class="modal-action cancel">Cancelar <i class="fas fa-times"></i></button>
+        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 id="modal-despesa-title" class="text-xl font-semibold mb-4">Confirmação de Despesa <i class="fas fa-money-bill"></i></h3>
+            <div id="modal-despesa-detalhes" class="mb-4"></div>
+            <div class="flex justify-end gap-4">
+                <button id="confirmar-despesa" class="bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    Confirmar <i class="fas fa-check"></i>
+                </button>
+                <button id="cancelar-despesa" class="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    Cancelar <i class="fas fa-times"></i>
+                </button>
+            </div>
         </div>
     </div>
 
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script type="module" src="script.js"></script>
 </body>
 </html>
