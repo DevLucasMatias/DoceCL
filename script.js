@@ -331,7 +331,7 @@ function renderSalesTable() {
         filtered = filtered.filter(s => s.data <= DOM.filterEnd.value);
     }
 
-    DOM.totalSales.textContent = `Quantidade Vendida: ${filtered.length}`;
+    DOM.totalSales.textContent = `Quantidade: ${filtered.length}`;
 
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
     const start = (currentPage - 1) * itemsPerPage;
