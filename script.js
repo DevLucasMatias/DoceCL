@@ -78,6 +78,7 @@ const DOM = {
 
 let expenseChart = null;
 let financeChart = null;
+let salesTrendChart = null;
 
 // Util: debounce
 function debounce(func, wait) {
@@ -126,10 +127,19 @@ function renderFinanceChart() {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
 
-  const totalVendas = completedSales.reduce((s, v) => s + Number(v.total || 0), 0);
-  const totalRecebido = completedSales.filter(v => v.pago).reduce((s, v) => s + Number(v.total || 0), 0);
+  // Get date filters
+  const startDate = DOM.filterStart.value || "1900-01-01";
+  const endDate = DOM.filterEnd.value || "9999-12-31";
+
+  // Filter sales and expenses by date range
+  const filteredSales = completedSales.filter(s => s.data >= startDate && s.data <= endDate);
+  const filteredExpenses = currentExpenses.filter(e => e.data >= startDate && e.data <= endDate);
+
+  // Calculate totals for the period
+  const totalVendas = filteredSales.reduce((s, v) => s + Number(v.total || 0), 0);
+  const totalRecebido = filteredSales.filter(v => v.pago).reduce((s, v) => s + Number(v.total || 0), 0);
   const totalAberto = totalVendas - totalRecebido;
-  const totalDespesas = currentExpenses.reduce((s, e) => s + Number(e.valor || 0), 0);
+  const totalDespesas = filteredExpenses.reduce((s, e) => s + Number(e.valor || 0), 0);
   const saldo = totalRecebido - totalDespesas;
 
   if (financeChart) financeChart.destroy();
@@ -137,37 +147,114 @@ function renderFinanceChart() {
     type: "bar",
     data: {
       labels: ["Vendas", "Recebido", "Em Aberto", "Despesas", "Saldo"],
-      datasets: [{ label: "R$ (valores agregados)", data: [totalVendas, totalRecebido, totalAberto, totalDespesas, saldo] }],
+      datasets: [{
+        label: "R$ (valores agregados)",
+        data: [totalVendas, totalRecebido, totalAberto, totalDespesas, saldo],
+        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#FF9F40", "#4BC0C0"],
+      }],
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: true }, title: { display: true, text: "Resumo Financeiro" } },
+      plugins: {
+        legend: { display: true },
+        title: {
+          display: true,
+          text: `Resumo Financeiro (${startDate ? new Date(startDate).toLocaleDateString("pt-BR") : "Início"} - ${endDate ? new Date(endDate).toLocaleDateString("pt-BR") : "Hoje"})`
+        }
+      },
       scales: { y: { beginAtZero: true } },
     },
   });
 }
 
+function renderSalesTrendChart() {
+  const canvas = document.getElementById("sales-trend-chart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  // Get date filters
+  const startDate = DOM.filterStart.value || "1900-01-01";
+  const endDate = DOM.filterEnd.value || "9999-12-31";
+
+  // Filter sales by date range
+  const filteredSales = completedSales.filter(s => s.data >= startDate && s.data <= endDate);
+
+  // Group sales by date
+  const salesByDate = filteredSales.reduce((acc, sale) => {
+    const date = sale.data;
+    if (!acc[date]) acc[date] = { total: 0, count: 0 };
+    acc[date].total += Number(sale.total || 0);
+    acc[date].count += Number(sale.qtd || 0);
+    return acc;
+  }, {});
+
+  // Prepare chart data
+  const labels = Object.keys(salesByDate).sort();
+  const totals = labels.map(date => salesByDate[date].total);
+
+  if (salesTrendChart) salesTrendChart.destroy();
+  salesTrendChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels.map(date => new Date(date).toLocaleDateString("pt-BR")),
+      datasets: [{
+        label: "Vendas por Dia (R$)",
+        data: totals,
+        borderColor: "#36A2EB",
+        backgroundColor: "rgba(54, 162, 235, 0.2)",
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "top" },
+        title: {
+          display: true,
+          text: `Vendas por Dia (${startDate ? new Date(startDate).toLocaleDateString("pt-BR") : "Início"} - ${endDate ? new Date(endDate).toLocaleDateString("pt-BR") : "Hoje"})`
+        }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
 function updateFinanceSummary() {
-  const totalVendas = completedSales.reduce((s, v) => s + Number(v.total || 0), 0);
-  const totalRecebido = completedSales.filter(v => v.pago).reduce((s, v) => s + Number(v.total || 0), 0);
+  // Get date filters
+  const startDate = DOM.filterStart.value || "1900-01-01"; // Fallback to a very early date
+  const endDate = DOM.filterEnd.value || "9999-12-31"; // Fallback to a far future date
+
+  // Filter sales and expenses by date range
+  const filteredSales = completedSales.filter(s => s.data >= startDate && s.data <= endDate);
+  const filteredExpenses = currentExpenses.filter(e => e.data >= startDate && e.data <= endDate);
+
+  // Calculate totals for the period
+  const totalVendas = filteredSales.reduce((s, v) => s + Number(v.total || 0), 0);
+  const totalRecebido = filteredSales.filter(v => v.pago).reduce((s, v) => s + Number(v.total || 0), 0);
   const totalAberto = totalVendas - totalRecebido;
-  const totalDespesas = currentExpenses.reduce((s, e) => s + Number(e.valor || 0), 0);
+  const totalDespesas = filteredExpenses.reduce((s, e) => s + Number(e.valor || 0), 0);
   const saldo = totalRecebido - totalDespesas;
 
+  // Format values for display
   const fmt = v => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  // Update DOM elements
   if (DOM.sumVendas) DOM.sumVendas.textContent = fmt(totalVendas);
   if (DOM.sumRecebido) DOM.sumRecebido.textContent = fmt(totalRecebido);
   if (DOM.sumAberto) DOM.sumAberto.textContent = fmt(totalAberto);
   if (DOM.sumDespesas) DOM.sumDespesas.textContent = fmt(totalDespesas);
   if (DOM.sumSaldo) DOM.sumSaldo.textContent = fmt(saldo);
 
-  // Atualiza card "Total de Vendas" do Histórico também
+  // Update total sales card in history
   if (DOM.totalSales) {
-    const qtd = completedSales.length;
+    const qtd = filteredSales.length;
     DOM.totalSales.textContent = `Total de Vendas: ${fmt(totalVendas)} — Itens: ${qtd}`;
   }
 
+  // Render the updated finance chart
   renderFinanceChart();
 }
 
@@ -705,9 +792,18 @@ DOM.nextExpensePage.addEventListener("click", () => {
 });
 
 // Reatividade filtros
-const debouncedRenderSales = debounce(() => { renderSalesTable(); groupByClient(); }, 300);
+const debouncedRenderSales = debounce(() => { 
+  renderSalesTable(); 
+  groupByClient(); 
+  updateFinanceSummary();
+  renderSalesTrendChart();
+}, 300);
 const debouncedRenderExpenses = debounce(renderExpenseTable, 300);
-const debouncedRenderClientDebts = debounce(groupByClient, 300);
+const debouncedRenderClientDebts = debounce(() => {
+  groupByClient();
+  updateFinanceSummary();
+  renderSalesTrendChart();
+}, 300);
 
 [DOM.filterClient, DOM.filterStart, DOM.filterEnd, DOM.filterStatus, DOM.filterProduct]
   .forEach(el => el.addEventListener("input", debouncedRenderSales));
@@ -724,4 +820,5 @@ await loadSales();
 await loadExpenses();
 renderCurrentSale();
 updateFinanceSummary();
+renderSalesTrendChart();
 activateTab("new-sale");
