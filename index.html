@@ -63,8 +63,14 @@
         .status-toggle input[type="checkbox"]:checked + .toggle-slider::after {
             transform: translateX(20px);
         }
+
+
+
+        
     </style>
 </head>
+
+
 <body class="bg-gray-100 text-gray-800 font-sans">
     <header class="bg-cover bg-center text-white py-12 text-center relative" style="background-image: url(doce.jpg)">
         <div class="absolute inset-0 bg-black opacity-50"></div>
@@ -73,6 +79,8 @@
             <p class="text-lg md:text-xl">Lucas & Cleice</p>
         </div>
     </header>
+
+    
 
     <div class="flex min-h-screen">
         <aside class="w-64 bg-gray-800 text-white p-6 flex flex-col">
@@ -92,6 +100,8 @@
             </nav>
         </aside>
 
+        
+
         <main class="flex-1 p-6 bg-white">
             <section id="new-sale" class="tab-content active" role="tabpanel" aria-hidden="false">
                 <h2 class="text-2xl font-semibold mb-4">Nova Venda <i class="fas fa-shopping-cart"></i></h2>
@@ -108,9 +118,30 @@
                 </form>
             </section>
 
+               <!-- RESUMO FINANCEIRO -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6" id="expense-summary">
+          <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-gray-500 text-sm">Total de Vendas</p>
+            <p id="sum-vendas" class="text-2xl font-bold">R$ 0,00</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-gray-500 text-sm">Recebido (Pagas)</p>
+            <p id="sum-recebido" class="text-2xl font-bold">R$ 0,00</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-gray-500 text-sm">Em Aberto</p>
+            <p id="sum-aberto" class="text-2xl font-bold">R$ 0,00</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-gray-500 text-sm">Total de Despesas</p>
+            <p id="sum-despesas" class="text-2xl font-bold">R$ 0,00</p>
+          </div>
+
+        </div>
+
             <section id="sales-history" class="tab-content hidden" role="tabpanel" aria-hidden="true">
                 <h2 class="text-2xl font-semibold mb-2">Histórico de Vendas <i class="fas fa-list"></i></h2>
-                <p class="text-lg text-gray-600 mb-4" id="total-sales">Total de Vendas: R$ 0,00</p>
+                <!-- <p class="text-lg text-gray-600 mb-4" id="total-sales">Total de Vendas: R$ 0,00</p> -->
                 <div class="flex flex-wrap gap-4 mb-6">
                     <input type="text" id="filtro-cliente" placeholder="Cliente" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Filtrar por cliente" />
                     <input type="date" id="filtro-data-inicio" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Data inicial" />
@@ -207,6 +238,8 @@
             </div>
         </div>
     </div>
+
+    
 
     <div id="modal-confirmacao-despesa" class="modal" role="dialog" aria-labelledby="modal-despesa-title">
         <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
