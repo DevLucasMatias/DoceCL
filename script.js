@@ -668,7 +668,7 @@ const debouncedRenderSales = debounce(() => { renderSalesTable(); groupByClient(
 const debouncedRenderExpenses = debounce(renderExpenseTable, 300);
 const debouncedRenderClientDebts = debounce(groupByClient, 300);
 
-[DOM.filterClient, DOM.filterStart, DOM.filterEnd, DOM.filterStatus, DOM.filterProduct]
+[DOM.filterClient, DOM.filterStart, DOM.filterEnd, DOM.filterStatus, DOM.filterProduct]  
   .forEach(el => el.addEventListener("input", debouncedRenderSales));
 
 [DOM.filterECategoria, DOM.filterEDescricao, DOM.filterEStart, DOM.filterEEnd]
