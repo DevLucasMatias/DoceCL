@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// Firebase Config (mover para backend em produção)
 const firebaseConfig = {
   apiKey: "AIzaSyCFGN-HlN620RFrFAw2ty-KU4gRWrWXtIE",
   authDomain: "brigadeirospainel.firebaseapp.com",
@@ -13,6 +14,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// Produtos (pode expandir aqui)
 const PRODUCTS = [
   { id: "brigadeiro-tradicional", nome: "Brigadeiro Tradicional", preco: 2.5, imagem: "foco.jpg" },
 ];
@@ -24,6 +26,7 @@ let currentPage = 1;
 let expensePage = 1;
 const itemsPerPage = 10;
 
+// ==== DOM refs ====
 const DOM = {
   produtosDiv: document.getElementById("produtos"),
   formSale: document.getElementById("form-venda"),
@@ -64,28 +67,37 @@ const DOM = {
   expensePageInfo: document.getElementById("expense-page-info"),
   filterClientDebts: document.getElementById("filtro-cliente-debts"),
   filterStatusDebts: document.getElementById("filtro-status-debts"),
+  totalSales: document.getElementById("total-sales"),
+  // Resumo Financeiro
   sumVendas: document.getElementById("sum-vendas"),
   sumRecebido: document.getElementById("sum-recebido"),
   sumAberto: document.getElementById("sum-aberto"),
   sumDespesas: document.getElementById("sum-despesas"),
+  sumSaldo: document.getElementById("sum-saldo"),
 };
 
 let expenseChart = null;
+let financeChart = null;
 
-// === UTIL ===
+// Util: debounce
 function debounce(func, wait) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => func(...args), wait); };
 }
 
+// ...existing code...
 function toLocalISODate(dateInput) {
+  // dateInput: "YYYY-MM-DD"
   const [year, month, day] = dateInput.split('-').map(Number);
+  // Garante dois dígitos para mês e dia
   const mm = String(month).padStart(2, '0');
   const dd = String(day).padStart(2, '0');
   return `${year}-${mm}-${dd}`;
 }
+// ...existing code...
 
-// === GRÁFICOS ===
+
+// ==== Gráficos ====
 function renderExpenseChart() {
   const canvas = document.getElementById("expense-chart");
   if (!canvas) return;
@@ -95,6 +107,8 @@ function renderExpenseChart() {
   const data = categories.map(cat =>
     currentExpenses.filter(e => e.categoria === cat).reduce((s, e) => s + Number(e.valor || 0), 0)
   );
+
+  
 
   if (expenseChart) expenseChart.destroy();
   expenseChart = new Chart(ctx, {
@@ -107,11 +121,38 @@ function renderExpenseChart() {
   });
 }
 
+function renderFinanceChart() {
+  const canvas = document.getElementById("finance-chart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  const totalVendas = completedSales.reduce((s, v) => s + Number(v.total || 0), 0);
+  const totalRecebido = completedSales.filter(v => v.pago).reduce((s, v) => s + Number(v.total || 0), 0);
+  const totalAberto = totalVendas - totalRecebido;
+  const totalDespesas = currentExpenses.reduce((s, e) => s + Number(e.valor || 0), 0);
+  const saldo = totalRecebido - totalDespesas;
+
+  if (financeChart) financeChart.destroy();
+  financeChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ["Vendas", "Recebido", "Em Aberto", "Despesas", "Saldo"],
+      datasets: [{ label: "R$ (valores agregados)", data: [totalVendas, totalRecebido, totalAberto, totalDespesas, saldo] }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true }, title: { display: true, text: "Resumo Financeiro" } },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+}
+
 function updateFinanceSummary() {
   const totalVendas = completedSales.reduce((s, v) => s + Number(v.total || 0), 0);
   const totalRecebido = completedSales.filter(v => v.pago).reduce((s, v) => s + Number(v.total || 0), 0);
   const totalAberto = totalVendas - totalRecebido;
   const totalDespesas = currentExpenses.reduce((s, e) => s + Number(e.valor || 0), 0);
+  const saldo = totalRecebido - totalDespesas;
 
   const fmt = v => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -119,9 +160,18 @@ function updateFinanceSummary() {
   if (DOM.sumRecebido) DOM.sumRecebido.textContent = fmt(totalRecebido);
   if (DOM.sumAberto) DOM.sumAberto.textContent = fmt(totalAberto);
   if (DOM.sumDespesas) DOM.sumDespesas.textContent = fmt(totalDespesas);
+  if (DOM.sumSaldo) DOM.sumSaldo.textContent = fmt(saldo);
+
+  // Atualiza card "Total de Vendas" do Histórico também
+  if (DOM.totalSales) {
+    const qtd = completedSales.length;
+    DOM.totalSales.textContent = `Total de Vendas: ${fmt(totalVendas)} — Itens: ${qtd}`;
+  }
+
+  renderFinanceChart();
 }
 
-// === PRODUTOS ===
+// ==== Produtos / Venda Atual ====
 function renderProducts() {
   DOM.produtosDiv.innerHTML = "";
   PRODUCTS.forEach(({ id, nome, preco, imagem }) => {
@@ -168,7 +218,7 @@ function renderCurrentSale() {
   });
 }
 
-// === REGISTRO DE VENDA ===
+// ==== Registro de Venda ====
 DOM.formSale.addEventListener("submit", async e => {
   e.preventDefault();
   if (!currentSale.length) return alert("Adicione pelo menos um item à venda!");
@@ -180,7 +230,7 @@ DOM.formSale.addEventListener("submit", async e => {
 
   let formattedDate;
   try { formattedDate = toLocalISODate(data); }
-  catch { return alert("Data inválida."); }
+  catch { return alert("Data inválida. Por favor, selecione uma data válida."); }
 
   DOM.modalVendaDetalhes.innerHTML = `
     <p><strong>Cliente:</strong> ${nome}</p>
@@ -189,7 +239,7 @@ DOM.formSale.addEventListener("submit", async e => {
     <p><strong>Itens:</strong></p>
     <ul class="list-disc pl-5">${currentSale.map(i => `<li>${i.nome} x${i.qtd} - R$ ${(i.qtd * i.preco).toFixed(2)}</li>`).join("")}</ul>
     <p><strong>Total:</strong> R$ ${currentSale.reduce((s,i)=>s+i.qtd*i.preco,0).toFixed(2)}</p>
-  `;
+`;
 
   DOM.modalVenda.classList.add("active");
 
@@ -205,52 +255,31 @@ DOM.formSale.addEventListener("submit", async e => {
       alert("Venda registrada com sucesso!");
       currentSale = [];
       DOM.formSale.reset();
-
-      // === AJUSTE 1: DATA FIXA NO DIA ATUAL ===
-      const dataInput = DOM.formSale.querySelector("#data");
-      if (dataInput) dataInput.value = new Date().toISOString().split("T")[0];
-
       renderCurrentSale();
       await loadSales();
       updateFinanceSummary();
-
-      // === AJUSTE 2: VOLTA PARA TELA INICIAL ===
+      activateTab("sales-history");
       DOM.modalVenda.classList.remove("active");
-      activateTab("new-sale");
-
-      // === AJUSTE 3: BOTÃO NOVA VENDA (3s) ===
-      const btnNova = document.getElementById("nova-venda-apos-confirmar");
-      if (btnNova) {
-        btnNova.classList.remove("hidden");
-        setTimeout(() => btnNova.classList.add("hidden"), 3000);
-      }
     } catch (err) {
       console.error("Erro ao salvar venda:", err);
-      alert("Erro ao registrar venda.");
+      alert("Erro ao registrar venda. Tente novamente.");
     }
   };
-
   DOM.cancelarVenda.onclick = () => DOM.modalVenda.classList.remove("active");
 });
 
-// === BOTÃO NOVA VENDA NO MODAL ===
-document.getElementById("nova-venda-apos-confirmar")?.addEventListener("click", () => {
-  DOM.modalVenda.classList.remove("active");
-  activateTab("new-sale");
-});
-
-// === DEMAIS FUNÇÕES (DESPESAS, TABELAS, etc.) ===
+// ==== Registro de Despesa ====
 DOM.formExpense.addEventListener("submit", async e => {
   e.preventDefault();
   const categoria = DOM.formExpense.querySelector("#categoria-despesa").value;
   const descricao = DOM.formExpense.querySelector("#descricao-despesa").value.trim();
   const valor = parseFloat(DOM.formExpense.querySelector("#valor-despesa").value);
   const data = DOM.formExpense.querySelector("#data-despesa").value;
-  if (!categoria || !descricao || !valor || !data) return alert("Preencha todos os campos!");
+  if (!categoria || !descricao || !valor || !data) return alert("Preencha todos os campos obrigatórios!");
 
   let formattedDate;
   try { formattedDate = toLocalISODate(data); }
-  catch { return alert("Data inválida."); }
+  catch { return alert("Data inválida. Por favor, selecione uma data válida."); }
 
   DOM.modalDespesaDetalhes.innerHTML = `
     <p><strong>Categoria:</strong> ${categoria}</p>
@@ -273,12 +302,13 @@ DOM.formExpense.addEventListener("submit", async e => {
       DOM.modalDespesa.classList.remove("active");
     } catch (err) {
       console.error("Erro ao registrar despesa:", err);
-      alert("Erro ao registrar despesa.");
+      alert("Erro ao registrar despesa. Tente novamente.");
     }
   };
   DOM.cancelarDespesa.onclick = () => DOM.modalDespesa.classList.remove("active");
 });
 
+// ==== Carregar dados ====
 async function loadSales() {
   try {
     const snapshot = await getDocs(collection(db, "sales"));
@@ -288,7 +318,7 @@ async function loadSales() {
     groupByClient();
   } catch (err) {
     console.error("Erro ao carregar vendas:", err);
-    alert("Erro ao carregar vendas.");
+    alert("Erro ao carregar vendas. Verifique sua conexão.");
   }
 }
 
@@ -301,12 +331,13 @@ async function loadExpenses() {
     renderExpenseChart();
   } catch (err) {
     console.error("Erro ao carregar despesas:", err);
-    alert("Erro ao carregar despesas.");
+    alert("Erro ao carregar despesas. Verifique sua conexão.");
   }
 }
 
+// ==== Tabelas / Ações ====
 async function removeSale(id) {
-  if (!confirm("Tem certeza que deseja remover esta venda?")) return;
+  if (!confirm("Tem certeza que deseja remover esta venda? Esta ação não pode ser desfeita.")) return;
   try {
     await deleteDoc(doc(db, "sales", id));
     completedSales = completedSales.filter(s => s.id !== id);
@@ -316,12 +347,13 @@ async function removeSale(id) {
     alert("Venda removida com sucesso!");
   } catch (err) {
     console.error("Erro ao remover venda:", err);
-    alert("Erro ao remover venda.");
+    alert("Erro ao remover venda. Tente novamente.");
   }
 }
 
 function renderSalesTable() {
   let filtered = [...completedSales];
+
   if (DOM.filterClient.value) filtered = filtered.filter(s => s.nome.toLowerCase().includes(DOM.filterClient.value.toLowerCase()));
   if (DOM.filterProduct.value) filtered = filtered.filter(s => s.produto.toLowerCase().includes(DOM.filterProduct.value.toLowerCase()));
   if (DOM.filterStatus.value) filtered = filtered.filter(s => s.pago === (DOM.filterStatus.value === "pago"));
@@ -347,7 +379,11 @@ function renderSalesTable() {
       <div>${s.nome}</div>
       <div>${s.produto}</div>
       <div>${s.qtd}</div>
-      <div>${s.data ? new Date(new Date(s.data).getTime() + 3*60*60*1000).toLocaleDateString("pt-BR") : "Data inválida"}</div>
+      <div>${s.data 
+    ? new Date(new Date(s.data).getTime() + 3*60*60*1000).toLocaleDateString("pt-BR") 
+    : "Data inválida"}
+</div>
+
       <div>${s.telefone}</div>
       <div>
         <label class="status-toggle">
@@ -363,6 +399,7 @@ function renderSalesTable() {
 
   DOM.compradoresDiv.innerHTML = header + rows;
 
+  // Handlers
   DOM.compradoresDiv.querySelectorAll("input[type=checkbox]").forEach(cb => {
     cb.addEventListener("change", async e => {
       const id = e.target.dataset.id;
@@ -376,7 +413,7 @@ function renderSalesTable() {
         updateFinanceSummary();
       } catch (err) {
         console.error("Erro ao atualizar status:", err);
-        alert("Erro ao atualizar status.");
+        alert("Erro ao atualizar status de pagamento.");
         e.target.checked = !pago;
       }
     });
@@ -387,8 +424,24 @@ function renderSalesTable() {
   });
 }
 
+async function updateClientPaymentStatus(clientName, pago) {
+  try {
+    const salesToUpdate = completedSales.filter(s => s.nome === clientName && s.pago !== pago);
+    await Promise.all(salesToUpdate.map(sale => updateDoc(doc(db, "sales", sale.id), { pago })));
+    salesToUpdate.forEach(sale => { sale.pago = pago; });
+    renderSalesTable();
+    groupByClient();
+    updateFinanceSummary();
+  } catch (err) {
+    console.error("Erro ao atualizar status do cliente:", err);
+    alert("Erro ao atualizar status de pagamento do cliente.");
+    throw err;
+  }
+}
+
 function groupByClient() {
   let filteredSales = [...completedSales];
+
   if (DOM.filterClientDebts.value) filteredSales = filteredSales.filter(s => s.nome.toLowerCase().includes(DOM.filterClientDebts.value.toLowerCase()));
   if (DOM.filterStatusDebts.value === "nao-pago") filteredSales = filteredSales.filter(s => !s.pago);
   if (DOM.filterStart.value) filteredSales = filteredSales.filter(s => s.data >= DOM.filterStart.value);
@@ -443,23 +496,9 @@ function renderClientDebts(groupedData) {
   });
 }
 
-async function updateClientPaymentStatus(clientName, pago) {
-  try {
-    const salesToUpdate = completedSales.filter(s => s.nome === clientName && s.pago !== pago);
-    await Promise.all(salesToUpdate.map(sale => updateDoc(doc(db, "sales", sale.id), { pago })));
-    salesToUpdate.forEach(sale => { sale.pago = pago; });
-    renderSalesTable();
-    groupByClient();
-    updateFinanceSummary();
-  } catch (err) {
-    console.error("Erro ao atualizar status do cliente:", err);
-    alert("Erro ao atualizar status de pagamento do cliente.");
-    throw err;
-  }
-}
-
 function renderExpenseTable() {
   let filtered = [...currentExpenses];
+
   if (DOM.filterECategoria.value) filtered = filtered.filter(e => e.categoria.toLowerCase().includes(DOM.filterECategoria.value.toLowerCase()));
   if (DOM.filterEDescricao.value) filtered = filtered.filter(e => e.descricao.toLowerCase().includes(DOM.filterEDescricao.value.toLowerCase()));
   if (DOM.filterEStart.value) filtered = filtered.filter(e => e.data >= DOM.filterEStart.value);
@@ -491,7 +530,7 @@ function renderExpenseTable() {
   DOM.despesasDiv.innerHTML = header + rows;
 }
 
-// === EXPORT / IMPORT (Vendas e Despesas) ===
+// ==== Export / Import (Vendas) ====
 DOM.exportData.addEventListener("click", () => {
   const data = completedSales.map(s => ({
     Cliente: s.nome, Produto: s.produto, Quantidade: s.qtd, Data: s.data, Telefone: s.telefone,
@@ -515,6 +554,7 @@ DOM.importDataInput.addEventListener("change", async e => {
   const file = e.target.files[0];
   if (!file) return;
 
+  // Corrige escopo de requiredFields para usar no catch também
   const requiredFields = ["Cliente", "Produto", "Quantidade", "Valor", "Data", "Pago", "Telefone"];
   try {
     const data = await file.arrayBuffer();
@@ -553,6 +593,7 @@ DOM.importDataInput.addEventListener("change", async e => {
   }
 });
 
+// ==== Export / Import (Despesas) ====
 DOM.exportExpensesBtn.addEventListener("click", () => {
   const data = currentExpenses.map(e => ({
     Categoria: e.categoria, Descrição: e.descricao, Valor: e.valor, Data: e.data,
@@ -608,7 +649,7 @@ DOM.importExpensesInput.addEventListener("change", async e => {
   }
 });
 
-// === TABS ===
+// ==== Tabs / Navegação ====
 function activateTab(tabId) {
   DOM.tabContents.forEach(c => {
     const active = c.id === tabId;
@@ -638,7 +679,7 @@ DOM.tabs.forEach(tab => {
   });
 });
 
-// === PAGINAÇÃO ===
+// Paginação
 DOM.prevPage.addEventListener("click", () => { if (currentPage > 1) { currentPage--; renderSalesTable(); } });
 DOM.nextPage.addEventListener("click", () => {
   const filtered = completedSales.filter(s => {
@@ -663,12 +704,12 @@ DOM.nextExpensePage.addEventListener("click", () => {
   if (expensePage < Math.ceil(Math.max(1, filtered.length) / itemsPerPage)) { expensePage++; renderExpenseTable(); }
 });
 
-// === FILTROS ===
+// Reatividade filtros
 const debouncedRenderSales = debounce(() => { renderSalesTable(); groupByClient(); }, 300);
 const debouncedRenderExpenses = debounce(renderExpenseTable, 300);
 const debouncedRenderClientDebts = debounce(groupByClient, 300);
 
-[DOM.filterClient, DOM.filterStart, DOM.filterEnd, DOM.filterStatus, DOM.filterProduct]  
+[DOM.filterClient, DOM.filterStart, DOM.filterEnd, DOM.filterStatus, DOM.filterProduct]
   .forEach(el => el.addEventListener("input", debouncedRenderSales));
 
 [DOM.filterECategoria, DOM.filterEDescricao, DOM.filterEStart, DOM.filterEEnd]
@@ -677,16 +718,10 @@ const debouncedRenderClientDebts = debounce(groupByClient, 300);
 [DOM.filterClientDebts, DOM.filterStatusDebts, DOM.filterStart, DOM.filterEnd]
   .forEach(el => el.addEventListener("input", debouncedRenderClientDebts));
 
-// === INICIALIZAÇÃO ===
+// ==== Inicialização ====
 renderProducts();
 await loadSales();
 await loadExpenses();
 renderCurrentSale();
 updateFinanceSummary();
 activateTab("new-sale");
-
-// === AJUSTE FINAL: DATA FIXA AO CARREGAR A PÁGINA ===
-const dataInput = document.getElementById("data");
-if (dataInput) {
-  dataInput.value = new Date().toISOString().split("T")[0];
-}

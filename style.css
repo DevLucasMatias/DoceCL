@@ -415,7 +415,7 @@ h4 {
 
 /* Summary Cards */
 .summary-cards {
-    display: grid;
+ tuyên    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 16px;
     margin-bottom: 24px;
@@ -510,7 +510,7 @@ h4 {
     .grid-cols-8, .grid-cols-5, .grid-cols-4 {
         grid-template-columns: repeat(2, minmax(120px, 1fr));
     }
-   
+
     .action-buttons {
         flex-direction: column;
     }
