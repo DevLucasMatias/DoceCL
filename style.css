@@ -510,7 +510,7 @@ h4 {
     .grid-cols-8, .grid-cols-5, .grid-cols-4 {
         grid-template-columns: repeat(2, minmax(120px, 1fr));
     }
-
+   
     .action-buttons {
         flex-direction: column;
     }
