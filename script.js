@@ -15,8 +15,8 @@ const db = getFirestore(app);
 
 const PRODUCTS = [
   { id: "Brigadeiro", nome: "Brigadeiro Tradicional", preco: 3.0, imagem: "briga.jpg" },
-  { id: "Pudim", nome: "Pudim Tradicional", preco: 5.0, imagem: "pudim.jpg.avif" },
-  { id: "Bolo", nome: "Bolo Tradicional", preco: 5.0, imagem: "bolo.jpg" },
+  { id: "Pudim", nome: "Pudim Tradicional", preco: 6.0, imagem: "pudim.jpg.avif" },
+  { id: "Bolo", nome: "Bolo Tradicional", preco: 8.0, imagem: "bolo.jpg" },
   ];
 
 let currentSale = [];
