@@ -18,7 +18,7 @@ const PRODUCTS = [
   { id: "kit12", nome: "Kit com 12 unidades", preco: 38.00, imagem: "2.jpg" },
   { id: "kit12", nome: "Kit com 24 unidades", preco: 74.00, imagem: "2.jpg" },
   { id: "Pudim", nome: "Pudim Tradicional", preco: 6.0, imagem: "pudim.jpg.avif" },
-  { id: "Bolo", nome: "Brownie", preco: 7.0, imagem: "brownie.jpg" },
+  { id: "Bolo", nome: "Brownie de Colher", preco: 7.0, imagem: "brownie.jpg" },
     
   ];
 
