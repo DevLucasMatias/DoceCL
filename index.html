@@ -1,335 +1,362 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Brigadeiros Gourmet - Painel de Controle</title>
-    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-    <style>
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 50;
-        }
-        .modal.active {
-            display: flex;
-        }
-        .status-toggle {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .status-toggle input[type="checkbox"] {
-            display: none;
-        }
-        .status-toggle .toggle-slider {
-            position: relative;
-            width: 40px;
-            height: 20px;
-            background-color: #ccc;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .status-toggle .toggle-slider.paid {
-            background-color: #28a745;
-        }
-        .status-toggle .toggle-slider.unpaid {
-            background-color: #dc3545;
-        }
-        .status-toggle .toggle-slider::after {
-            content: "";
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            background-color: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: transform 0.3s;
-        }
-        .status-toggle input[type="checkbox"]:checked + .toggle-slider::after {
-            transform: translateX(20px);
-        }
-
-        /* Produtos: layout uniforme */
-        #produtos {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-            gap: 0.5rem;
-        }
-        #produtos > * {
-            background: #ffffff;
-            border-radius: 0.5rem;
-            padding: 0.4rem;
-            font-size: 0.8rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-            text-align: center;
-            min-height: 130px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        #produtos img {
-            max-height: 60px;
-            width: 100%;
-            object-fit: cover;
-            border-radius: 0.25rem;
-            margin-bottom: 0.25rem;
-        }
-
-        /* 🔸 BOTÕES DE ADICIONAR: todos iguais dentro de #produtos */
-        #produtos button {
-            width: 100%;
-            padding: 0.25rem 0.5rem;
-            margin-top: 0.25rem;
-            font-size: 0.75rem;
-            border-radius: 9999px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            box-sizing: border-box;
-            white-space: nowrap;
-        }
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DoceCL — Painel de Gestão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<!-- SheetJS (Excel) -->
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<!-- Firebase (ESM via script type=module no script.js) -->
+<link rel="stylesheet" href="styles.css"/>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans text-sm">
-    <header class="bg-cover bg-center text-white py-6 text-center relative" style="background-image: url(doce.jpg)">
-        <div class="absolute inset-0 bg-black opacity-50"></div>
-        <div class="relative z-10 max-w-4xl mx-auto">
-            <h1 class="text-3xl font-bold mb-1">
-                Brigadeiros Gourmet <i class="fas fa-birthday-cake"></i>
-            </h1>
-            <p class="text-sm md:text-base">Lucas & Cleice</p>
+<body>
+
+<!-- ═══════════════ TELA DE LOGIN ════════════════════════ -->
+<div id="login-screen">
+  <div class="login-bg"><div class="login-dots"></div></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon"></div>
+      <h1>DoceCL</h1>
+      <p>PAINEL DE GESTÃO · LUCAS & CLEICE</p>
+    </div>
+    <div class="login-error" id="login-error">Usuário ou senha incorretos.</div>
+    <div class="login-field">
+      <label>Usuário</label>
+      <input type="text" id="login-user" placeholder="Digite seu usuário" autocomplete="username"/>
+    </div>
+    <div class="login-field">
+      <label>Senha</label>F
+      <input type="password" id="login-pass" placeholder="Digite sua senha" autocomplete="current-password"/>
+    </div>
+    <button class="btn-login" onclick="doLogin()">Entrar no Painel →</button>
+ <!--  <p class="login-hint">Padrão: lucas / docecl123 &nbsp;|&nbsp; cleice / docecl123</p> -->
+  </div>
+</div>
+
+<!-- ═══════════════ APP ════════════════════════════════ -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand"> DoceCL</div>
+      <div class="sub">GESTÃO DE VENDAS</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-label">Principal</div>
+        <button class="nav-item active" onclick="showPage('dashboard',this)">
+          <span class="nav-icon">📊</span><span>Dashboard</span>
+        </button>
+        <button class="nav-item" onclick="showPage('nova-venda',this)">
+          <span class="nav-icon">🛒</span><span>Nova Venda</span>
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">Relatórios</div>
+        <button class="nav-item" onclick="showPage('historico',this)">
+          <span class="nav-icon">📋</span><span>Histórico</span>
+        </button>
+        <button class="nav-item" onclick="showPage('dividas',this)">
+          <span class="nav-icon">💸</span><span>Dívidas</span>
+        </button>
+        <button class="nav-item" onclick="showPage('despesas',this)">
+          <span class="nav-icon">💰</span><span>Despesas</span>
+        </button>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">LC</div>
+        <div>
+          <div class="user-name" id="user-name-display">Lucas</div>
+          <div class="user-role">Administrador</div>
         </div>
-    </header>
+        <button class="btn-logout" onclick="doLogout()" title="Sair">✕</button>
+      </div>
+    </div>
+  </aside>
 
-    <div class="flex min-h-screen">
-        <aside class="w-56 bg-gray-800 text-white p-4 flex flex-col">
-            <div class="text-lg font-semibold mb-4 text-center">
-                Menu <i class="fas fa-cookie-bite"></i>
-            </div>
-            <nav class="space-y-2" role="tablist">
-                <button
-                    class="tab active w-full text-left py-2 px-3 rounded-lg bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    data-tab="new-sale"
-                    role="tab">
-                    <i class="fas fa-shopping-cart mr-2"></i> Nova Venda
-                </button>
-                <button
-                    class="tab w-full text-left py-2 px-3 rounded-lg bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    data-tab="sales-history"
-                    role="tab">
-                    <i class="fas fa-history mr-2"></i> Histórico
-                </button>
-                <button
-                    class="tab w-full text-left py-2 px-3 rounded-lg bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    data-tab="expenses"
-                    role="tab">
-                    <i class="fas fa-money-bill mr-2"></i> Despesas
-                </button>
-            </nav>
-        </aside>
-
-        <main class="flex-1 p-4 bg-white max-w-6xl mx-auto">
-            <!-- NOVA VENDA -->
-            <section id="new-sale" class="tab-content active" role="tabpanel">
-                <h2 class="text-xl font-bold mb-3 text-pink-700">
-                    Nova Venda <i class="fas fa-shopping-cart"></i>
-                </h2>
-
-                <!-- Produtos -->
-                <div id="produtos" class="mb-3"></div>
-
-                <!-- Venda atual -->
-                <div class="bg-gray-50 p-3 rounded-lg shadow mb-3" id="venda-atual">
-                    <p class="text-center text-gray-500 py-4">
-                        Nenhum item adicionado ainda
-                    </p>
-                </div>
-
-                <!-- Formulário de venda -->
-                <form id="form-venda" class="bg-gray-50 p-4 rounded-lg shadow">
-                    <h3 class="text-lg font-bold mb-3 text-pink-700">
-                        Dados do Cliente <i class="fas fa-user"></i>
-                    </h3>
-                    <input
-                        type="text"
-                        id="nome"
-                        placeholder="Nome"
-                        required
-                        class="w-full p-2 mb-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    />
-                    <input
-                        type="tel"
-                        id="telefone"
-                        placeholder="Telefone"
-                        class="w-full p-2 mb-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    />
-                    <input
-                        type="date"
-                        id="data"
-                        required
-                        class="w-full p-2 mb-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    />
-                    <button
-                        type="submit"
-                        class="w-full bg-pink-600 text-white py-2.5 rounded-md font-bold hover:bg-pink-700 transition">
-                        Registrar Venda <i class="fas fa-check ml-1"></i>
-                    </button>
-                </form>
-            </section>
-
-            <!-- RESUMO FINANCEIRO -->
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 my-5">
-                <div class="bg-white rounded-lg shadow p-3 text-center">
-                    <p class="text-gray-500 text-xs">Total de Vendas</p>
-                    <p id="sum-vendas" class="text-2xl font-bold text-pink-600">R$ 0,00</p>
-                </div>
-                <div class="bg-white rounded-lg shadow p-3 text-center">
-                    <p class="text-gray-500 text-xs">Recebido (Pagas)</p>
-                    <p id="sum-recebido" class="text-2xl font-bold text-green-600">R$ 0,00</p>
-                </div>
-                <div class="bg-white rounded-lg shadow p-3 text-center">
-                    <p class="text-gray-500 text-xs">Em Aberto</p>
-                    <p id="sum-aberto" class="text-2xl font-bold text-red-600">R$ 0,00</p>
-                </div>
-                <div class="bg-white rounded-lg shadow p-3 text-center">
-                    <p class="text-gray-500 text-xs">Total de Despesas</p>
-                    <p id="sum-despesas" class="text-2xl font-bold text-purple-600">R$ 0,00</p>
-                </div>
-            </div>
-
-            <!-- HISTÓRICO DE VENDAS -->
-            <section id="sales-history" class="tab-content hidden" role="tabpanel">
-                <h2 class="text-lg font-semibold mb-3">
-                    Histórico de Vendas <i class="fas fa-list"></i>
-                </h2>
-                <div class="flex flex-wrap gap-3 mb-4">
-                    <input type="text" id="filtro-cliente" placeholder="Cliente" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" />
-                    <input type="date" id="filtro-data-inicio" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" />
-                    <input type="date" id="filtro-data-fim" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" />
-                    <select id="filtro-status" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500">
-                        <option value="">Todos os Status</option>
-                        <option value="pago">Pago</option>
-                        <option value="nao-pago">Não Pago</option>
-                    </select>
-                    <input type="text" id="filtro-produto" placeholder="Produto" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" />
-                    <button id="export-data" class="bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 text-xs">
-                        Exportar <i class="fas fa-download"></i>
-                    </button>
-                    <input type="file" id="import-data" accept=".json,.xlsx" class="hidden" />
-                    <button id="import-data-btn" class="bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 text-xs">
-                        Importar <i class="fas fa-upload"></i>
-                    </button>
-                </div>
-                <div class="overflow-x-auto">
-                    <div class="sales-table" id="compradores"></div>
-                    <div class="flex justify-between items-center mt-3">
-                        <button id="prev-page" class="bg-gray-600 text-white py-1.5 px-3 rounded-md hover:bg-gray-700 disabled:opacity-50 text-xs" disabled>Anterior</button>
-                        <span id="page-info" class="text-xs">Página 1</span>
-                        <button id="next-page" class="bg-gray-600 text-white py-1.5 px-3 rounded-md hover:bg-gray-700 text-xs">Próximo</button>
-                    </div>
-                </div>
-                <div class="mt-4">
-                    <h3 class="text-base font-semibold mb-3">
-                        Dívidas por Cliente <i class="fas fa-users"></i>
-                    </h3>
-                    <div class="flex flex-wrap gap-3 mb-4">
-                        <input type="text" id="filtro-cliente-debts" placeholder="Cliente" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" />
-                        <select id="filtro-status-debts" class="p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500">
-                            <option value="">Todos os Status</option>
-                            <option value="nao-pago">Não Pago</option>
-                        </select>
-                    </div>
-                    <div class="sales-table" id="client-debts"></div>
-                </div>
-            </section>
-
-            <!-- DESPESAS -->
-            <section id="expenses" class="tab-content hidden" role="tabpanel">
-                <h2 class="text-lg font-semibold mb-3">
-                    Despesas <i class="fas fa-money-bill"></i>
-                </h2>
-                <form id="form-despesa" class="bg-gray-50 p-4 rounded-lg shadow mb-4">
-                    <h3 class="text-base font-semibold mb-3">
-                        Registrar Despesa <i class="fas fa-plus"></i>
-                    </h3>
-                    <select id="categoria-despesa" class="w-full p-2 mb-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" required>
-                        <option value="">Selecione a Categoria</option>
-                        <option value="Uber">Uber</option>
-                        <option value="Materiais">Materiais</option>
-                        <option value="Outros">Outros</option>
-                    </select>
-                    <input type="text" id="descricao-despesa" placeholder="Descrição" class="w-full p-2 mb-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" required />
-                    <input type="number" id="valor-despesa" placeholder="Valor (R$)" step="0.01" min="0" class="w-full p-2 mb-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" required />
-                    <input type="date" id="data-despesa" class="w-full p-2 mb-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500" required />
-                    <button type="submit" class="bg-pink-600 text-white py-2 px-4 rounded-md hover:bg-pink-700 text-xs">
-                        Registrar Despesa <i class="fas fa-check"></i>
-                    </button>
-                </form>
-                <div class="flex flex-wrap gap-3 mb-4">
-                    <input type="text" id="filtro-despesa-categoria" placeholder="Categoria" class="p-2 border rounded-md" />
-                    <input type="date" id="filtro-despesa-data-inicio" class="p-2 border rounded-md" />
-                    <input type="date" id="filtro-despesa-data-fim" class="p-2 border rounded-md" />
-                    <input type="text" id="filtro-despesa-descricao" placeholder="Descrição" class="p-2 border rounded-md" />
-                    <button id="export-expenses" class="bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 text-xs">
-                        Exportar <i class="fas fa-download"></i>
-                    </button>
-                    <input type="file" id="import-expenses" accept=".json,.xlsx" class="hidden" />
-                    <button id="import-expenses-btn" class="bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 text-xs">
-                        Importar <i class="fas fa-upload"></i>
-                    </button>
-                </div>
-                <canvas id="expense-chart" class="max-h-64 mb-4 bg-white p-3 rounded-lg shadow"></canvas>
-                <div class="overflow-x-auto">
-                    <div class="sales-table" id="despesas"></div>
-                    <div class="flex justify-between items-center mt-3">
-                        <button id="prev-expense-page" class="bg-gray-600 text-white py-1.5 px-3 rounded-md hover:bg-gray-700 disabled:opacity-50 text-xs" disabled>Anterior</button>
-                        <span id="expense-page-info" class="text-xs">Página 1</span>
-                        <button id="next-expense-page" class="bg-gray-600 text-white py-1.5 px-3 rounded-md hover:bg-gray-700 text-xs">Próximo</button>
-                    </div>
-                </div>
-            </section>
-        </main>
+  <!-- MAIN -->
+  <main class="main">
+    <!-- Header com imagem de fundo (igual ao original) -->
+    <div class="app-header">
+      <h1> Brigadeiros Gourmet</h1>
+      <p>Lucas &amp; Cleice</p>
     </div>
 
-    <!-- Modais -->
-    <div id="modal-confirmacao" class="modal">
-        <div class="bg-white p-5 rounded-xl shadow-2xl w-full max-w-md">
-            <h3 class="text-lg font-bold mb-3">Confirmação de Venda</h3>
-            <div id="modal-venda-detalhes" class="mb-3"></div>
-            <div class="flex justify-end gap-3">
-                <button id="confirmar-venda" class="bg-pink-600 text-white py-2 px-4 rounded-md hover:bg-pink-700 text-xs">Confirmar</button>
-                <button id="cancelar-venda" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 text-xs">Cancelar</button>
-            </div>
-        </div>
+    <div class="page-header">
+      <h2 id="page-title">Dashboard</h2>
+      <div class="date-badge" id="date-badge"></div>
     </div>
 
-    <div id="modal-confirmacao-despesa" class="modal">
-        <div class="bg-white p-5 rounded-xl shadow-2xl w-full max-w-md">
-            <h3 class="text-lg font-bold mb-3">Confirmação de Despesa</h3>
-            <div id="modal-despesa-detalhes" class="mb-3"></div>
-            <div class="flex justify-end gap-3">
-                <button id="confirmar-despesa" class="bg-pink-600 text-white py-2 px-4 rounded-md hover:bg-pink-700 text-xs">Confirmar</button>
-                <button id="cancelar-despesa" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 text-xs">Cancelar</button>
-            </div>
+    <!-- ═══ DASHBOARD ═══ -->
+    <div id="page-dashboard" class="content active">
+      <div class="welcome-banner">
+        <div class="welcome-text">
+          <h3>Bem-vindo, <span id="welcome-name">Lucas e Cleice</span>! </h3>
+          <p>Aqui está o resumo do seu negócio de doces.</p>
         </div>
+        <div class="welcome-emoji"></div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon pink">💰</div>
+          <div class="kpi-label">Total de Vendas</div>
+          <div class="kpi-value" id="kpi-total">R$ 0,00</div>
+          <span class="kpi-badge neutral" id="kpi-qtd-vendas">0 vendas</span>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon verde">✅</div>
+          <div class="kpi-label">Recebido (Pagas)</div>
+          <div class="kpi-value" id="kpi-pago">R$ 0,00</div>
+          <span class="kpi-badge up">Recebido</span>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon verm">⚠️</div>
+          <div class="kpi-label">Em Aberto</div>
+          <div class="kpi-value" id="kpi-aberto">R$ 0,00</div>
+          <span class="kpi-badge down" id="kpi-qtd-aberto">0 pendentes</span>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon escuro">📉</div>
+          <div class="kpi-label">Total Despesas</div>
+          <div class="kpi-value" id="kpi-despesas">R$ 0,00</div>
+          <span class="kpi-badge neutral">Custos</span>
+        </div>
+      </div>
+
+      <!-- Gráficos -->
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title"><span>📈</span> Vendas por Produto</div>
+          <div class="chart-wrap"><canvas id="chart-produtos"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span>📅</span> Despesas por Categoria</div>
+          <div class="chart-wrap"><canvas id="chart-despesas-cat"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Últimas vendas -->
+      <div class="card">
+        <div class="card-title"><span>🕐</span> Últimas Vendas</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Cliente</th><th>Produto</th><th>Data</th><th>Valor</th><th>Status</th>
+            </tr></thead>
+            <tbody id="tbody-recentes"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Resumo financeiro (compatível com original) -->
+      <div class="kpi-grid" style="margin-top:20px;display:none">
+        <div><p id="sum-vendas"></p></div>
+        <div><p id="sum-recebido"></p></div>
+        <div><p id="sum-aberto"></p></div>
+        <div><p id="sum-despesas"></p></div>
+      </div>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <!-- ═══ NOVA VENDA ═══ -->
+    <div id="page-nova-venda" class="content">
+      <h3 class="section-title">🛒 Nova Venda</h3>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title"><span></span> Escolha os Produtos</div>
+        <div id="produtos-grid" class="produtos-grid"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title"><span>🧺</span> Carrinho</div>
+        <div id="carrinho" class="carrinho">
+          <div class="carrinho-vazio">Nenhum item adicionado ainda...</div>
+        </div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-secondary btn-sm" onclick="limparCarrinho()">🗑 Limpar Carrinho</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>👤</span> Dados do Cliente</div>
+        <form id="form-venda">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nome do Cliente *</label>
+              <input type="text" id="nome" placeholder="Nome completo" required/>
+            </div>
+            <div class="form-group">
+              <label>Telefone</label>
+              <input type="tel" id="telefone" placeholder="(00) 00000-0000"/>
+            </div>
+            <div class="form-group">
+              <label>Data da Venda *</label>
+              <input type="date" id="data" required/>
+            </div>
+            <div class="form-group">
+              <label>Forma de Pagamento</label>
+              <select id="pagamento">
+                <option value="Pix">Pix</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Cartão">Cartão</option>
+                <option value="Fiado">Fiado (não pago)</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary">✅ Registrar Venda</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══ HISTÓRICO ═══ -->
+    <div id="page-historico" class="content">
+      <h3 class="section-title">📋 Histórico de Vendas</h3>
+      <div class="filtros">
+        <input type="text"  id="filtro-cliente"      placeholder="🔍 Cliente"/>
+        <input type="date"  id="filtro-data-inicio"/>
+        <input type="date"  id="filtro-data-fim"/>
+        <select             id="filtro-status">
+          <option value="">Todos os Status</option>
+          <option value="pago">Pago</option>
+          <option value="nao-pago">Não Pago</option>
+        </select>
+        <input type="text"  id="filtro-produto"      placeholder=" Produto"/>
+        <button id="export-data"      class="btn btn-secondary btn-sm">⬇ Excel</button>
+        <input  type="file" id="import-data"          accept=".json,.xlsx" class="hidden"/>
+        <button id="import-data-btn"  class="btn btn-secondary btn-sm">⬆ Importar</button>
+      </div>
+      <div class="card">
+        <div id="compradores"></div>
+        <div class="paginacao">
+          <button class="pag-btn" id="prev-page" disabled>← Ant.</button>
+          <span   class="pag-info" id="page-info">Página 1</span>
+          <button class="pag-btn" id="next-page">Próx. →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DÍVIDAS ═══ -->
+    <div id="page-dividas" class="content">
+      <h3 class="section-title">💸 Dívidas por Cliente</h3>
+      <div class="filtros">
+        <input type="text" id="filtro-cliente-debts" placeholder="🔍 Cliente"/>
+        <select            id="filtro-status-debts">
+          <option value="">Todos os Status</option>
+          <option value="nao-pago">Em Aberto</option>
+          <option value="pago">Tudo Pago</option>
+        </select>
+      </div>
+      <div id="client-debts"></div>
+    </div>
+
+    <!-- ═══ DESPESAS ═══ -->
+    <div id="page-despesas" class="content">
+      <h3 class="section-title">💰 Despesas</h3>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title"><span>➕</span> Registrar Despesa</div>
+        <form id="form-despesa">
+          <div class="form-grid three">
+            <div class="form-group">
+              <label>Categoria *</label>
+              <select id="categoria-despesa" required>
+                <option value="">Selecione</option>
+                <option value="Uber">Uber</option>
+                <option value="Materiais">Materiais</option>
+                <option value="Ingredientes">Ingredientes</option>
+                <option value="Embalagens">Embalagens</option>
+                <option value="Transporte">Transporte</option>
+                <option value="Equipamentos">Equipamentos</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Descrição *</label>
+              <input type="text" id="descricao-despesa" placeholder="Descreva a despesa" required/>
+            </div>
+            <div class="form-group">
+              <label>Valor (R$) *</label>
+              <input type="number" id="valor-despesa" placeholder="0,00" step="0.01" min="0" required/>
+            </div>
+            <div class="form-group">
+              <label>Data *</label>
+              <input type="date" id="data-despesa" required/>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">✅ Registrar Despesa</button>
+        </form>
+      </div>
+
+      <div class="filtros">
+        <input type="text" id="filtro-despesa-categoria" placeholder="🔍 Categoria"/>
+        <input type="text" id="filtro-despesa-descricao" placeholder="🔍 Descrição"/>
+        <input type="date" id="filtro-despesa-data-inicio"/>
+        <input type="date" id="filtro-despesa-data-fim"/>
+        <button id="export-expenses"     class="btn btn-secondary btn-sm">⬇ Excel</button>
+        <input  type="file" id="import-expenses" accept=".json,.xlsx" class="hidden"/>
+        <button id="import-expenses-btn" class="btn btn-secondary btn-sm">⬆ Importar</button>
+      </div>
+
+      <!-- Gráfico despesas -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title"><span>📊</span> Despesas por Categoria</div>
+        <div class="chart-wrap"><canvas id="expense-chart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div id="despesas"></div>
+        <div class="paginacao">
+          <button class="pag-btn" id="prev-expense-page" disabled>← Ant.</button>
+          <span   class="pag-info" id="expense-page-info">Página 1</span>
+          <button class="pag-btn" id="next-expense-page">Próx. →</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══ MODAIS ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-confirmacao">
+  <div class="modal-box">
+    <div class="modal-title">🎉 Confirmar Venda</div>
+    <div class="modal-detalhes" id="modal-venda-detalhes"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary"   id="confirmar-venda">✅ Confirmar</button>
+      <button class="btn btn-secondary" id="cancelar-venda">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirmacao-despesa">
+  <div class="modal-box">
+    <div class="modal-title">💰 Confirmar Despesa</div>
+    <div class="modal-detalhes" id="modal-despesa-detalhes"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary"   id="confirmar-despesa">✅ Confirmar</button>
+      <button class="btn btn-secondary" id="cancelar-despesa">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- Script principal (module para Firebase ESM) -->
+<script type="module" src="script.js"></script>
+
+
 </body>
 </html>

@@ -1,485 +1,1012 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+/* ═══════════════════════════════════════════════════════════════
+   DoceCL — script.js
+   Integração Firebase Firestore + todas as features originais
+   + design premium, login, exportação Excel (SheetJS), debounce,
+     timezone fix, gráfico refinado, agrupamento avançado
+   ═══════════════════════════════════════════════════════════════ */
 
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs,
+         updateDoc, doc, deleteDoc, query, orderBy,
+         onSnapshot }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ──────────────────────────────────────────────────────────────
+// 1. CONFIGURAÇÃO FIREBASE
+//    Substitua os valores abaixo pelas suas credenciais se precisar
+//    trocar de projeto no Firebase Console.
+// ──────────────────────────────────────────────────────────────
 const firebaseConfig = {
-  apiKey: "AIzaSyCFGN-HlN620RFrFAw2ty-KU4gRWrWXtIE",
-  authDomain: "brigadeirospainel.firebaseapp.com",
-  projectId: "brigadeirospainel",
-  storageBucket: "brigadeirospainel.appspot.com",
+  apiKey:            "AIzaSyCFGN-HlN620RFrFAw2ty-KU4gRWrWXtIE",
+  authDomain:        "brigadeirospainel.firebaseapp.com",
+  projectId:         "brigadeirospainel",
+  storageBucket:     "brigadeirospainel.appspot.com",
   messagingSenderId: "786298308276",
-  appId: "1:786298308276:web:a548c7b7e604c4d88b79e1",
+  appId:             "1:786298308276:web:a548c7b7e604c4d88b79e1",
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db  = getFirestore(app);
 
-const PRODUCTS = [
-  { id: "Brigadeiro", nome: "Brigadeiro Tradicional", preco: 3.0, imagem: "briga.jpg" },
-  { id: "kit12", nome: "Kit com 12 unidades", preco: 38.00, imagem: "2.jpg" },
-  { id: "kit12", nome: "Kit com 24 unidades", preco: 74.00, imagem: "2.jpg" },
-  { id: "Pudim", nome: "Pudim Tradicional", preco: 6.0, imagem: "pudim.jpg.avif" },
-  { id: "Bolo", nome: "Brownie de colher", preco: 7.0, imagem: "brownie.jpg" },
-    
-  ];
-
-let currentSale = [];
-let completedSales = [];
-let currentExpenses = [];
-let currentPage = 1;
-let expensePage = 1;
-const itemsPerPage = 10;
-let expenseChart = null;
-
-const DOM = {
-  produtosDiv: document.getElementById("produtos"),
-  formSale: document.getElementById("form-venda"),
-  vendaAtualDiv: document.getElementById("venda-atual"),
-  compradoresDiv: document.getElementById("compradores"),
-  clientDebtsDiv: document.getElementById("client-debts"),
-  despesasDiv: document.getElementById("despesas"),
-  tabs: document.querySelectorAll(".tab"),
-  tabContents: document.querySelectorAll(".tab-content"),
-  filterClient: document.getElementById("filtro-cliente"),
-  filterStart: document.getElementById("filtro-data-inicio"),
-  filterEnd: document.getElementById("filtro-data-fim"),
-  filterStatus: document.getElementById("filtro-status"),
-  filterProduct: document.getElementById("filtro-produto"),
-  exportData: document.getElementById("export-data"),
-  formExpense: document.getElementById("form-despesa"),
-  filterECategoria: document.getElementById("filtro-despesa-categoria"),
-  filterEDescricao: document.getElementById("filtro-despesa-descricao"),
-  filterEStart: document.getElementById("filtro-despesa-data-inicio"),
-  filterEEnd: document.getElementById("filtro-despesa-data-fim"),
-  exportExpensesBtn: document.getElementById("export-expenses"),
-  modalVenda: document.getElementById("modal-confirmacao"),
-  modalVendaDetalhes: document.getElementById("modal-venda-detalhes"),
-  confirmarVenda: document.getElementById("confirmar-venda"),
-  cancelarVenda: document.getElementById("cancelar-venda"),
-  modalDespesa: document.getElementById("modal-confirmacao-despesa"),
-  modalDespesaDetalhes: document.getElementById("modal-despesa-detalhes"),
-  confirmarDespesa: document.getElementById("confirmar-despesa"),
-  cancelarDespesa: document.getElementById("cancelar-despesa"),
-  prevPage: document.getElementById("prev-page"),
-  nextPage: document.getElementById("next-page"),
-  pageInfo: document.getElementById("page-info"),
-  prevExpensePage: document.getElementById("prev-expense-page"),
-  nextExpensePage: document.getElementById("next-expense-page"),
-  expensePageInfo: document.getElementById("expense-page-info"),
-  filterClientDebts: document.getElementById("filtro-cliente-debts"),
-  filterStatusDebts: document.getElementById("filtro-status-debts"),
-  sumVendas: document.getElementById("sum-vendas"),
-  sumRecebido: document.getElementById("sum-recebido"),
-  sumAberto: document.getElementById("sum-aberto"),
-  sumDespesas: document.getElementById("sum-despesas"),
-  dataInput: document.getElementById("data"),
+// ──────────────────────────────────────────────────────────────
+// 2. USUÁRIOS DO SISTEMA (login local)
+//    Para adicionar: inclua nova chave no objeto.
+// ──────────────────────────────────────────────────────────────
+const USERS = {
+  lucas:  { pass: "docecl123", name: "Lucas",  initials: "LC" },
+  cleice: { pass: "docecl123", name: "Cleice", initials: "CL" },
+  admin:  { pass: "admin123",  name: "Admin",  initials: "AD" },
 };
 
-function debounce(func, wait) {
+// ──────────────────────────────────────────────────────────────
+// 3. CATÁLOGO DE PRODUTOS
+//    Adicione/remova produtos aqui. imagem: caminho relativo ou URL.
+// ──────────────────────────────────────────────────────────────
+const PRODUCTS = [
+  { id: "Brigadeiro",   nome: "Brigadeiro Tradicional", preco: 3.00,  emoji: "🍫", imagem: "briga.jpg"       },
+  { id: "kit12",        nome: "Kit com 12 unidades",    preco: 38.00, emoji: "📦", imagem: "2.jpg"           },
+  { id: "kit24",        nome: "Kit com 24 unidades",    preco: 74.00, emoji: "🎁", imagem: "2.jpg"           },
+  { id: "Pudim",        nome: "Pudim Tradicional",      preco: 6.00,  emoji: "🍮", imagem: "pudim.jpg.avif"  },
+  { id: "Brownie",      nome: "Brownie de Colher",      preco: 7.00,  emoji: "🟫", imagem: "brownie.jpg"     },
+];
+
+// ──────────────────────────────────────────────────────────────
+// 4. ESTADO DA APLICAÇÃO
+// ──────────────────────────────────────────────────────────────
+let currentSale     = [];          // itens do carrinho atual
+let completedSales  = [];          // vendas carregadas do Firebase
+let currentExpenses = [];          // despesas carregadas do Firebase
+let currentPage     = 1;
+let expensePage     = 1;
+const itemsPerPage  = 10;
+let expenseChart    = null;
+let prodChart       = null;
+let unsubSales      = null;        // listener tempo-real vendas
+let unsubExpenses   = null;        // listener tempo-real despesas
+let currentUser     = null;
+
+// ──────────────────────────────────────────────────────────────
+// 5. UTILITÁRIOS
+// ──────────────────────────────────────────────────────────────
+
+// Debounce: evita chamadas excessivas nos filtros
+function debounce(fn, ms) {
   let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => func(...args), wait); };
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-// === CORREÇÃO DEFINITIVA DO PROBLEMA DE DATA (fuso horário) ===
+// Corrige problema de fuso horário ao salvar/ler datas
+// "2026-01-15" → "2026-01-15" garantido em horário local
 function toLocalISODate(dateInput) {
-  // Recebe "YYYY-MM-DD" e devolve no mesmo formato, mas evitando erro de fuso
-  const date = new Date(dateInput + "T12:00:00"); // força meio-dia local
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const d = new Date(dateInput + "T12:00:00");
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
-function formatarDataBrasileira(dateString) {
-  // Converte "2026-01-02" → "02/01/2026"
-  const [year, month, day] = dateString.split('-');
-  return `${day}/${month}/${year}`;
+// Formata "2026-01-15" → "15/01/2026"
+function fmtDate(s) {
+  if (!s) return "—";
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
 }
 
-// === FILTRO "NÃO PAGO" CORRIGIDO ===
-function getFilteredSales() {
-  let filtered = [...completedSales];
-  if (DOM.filterClient.value) filtered = filtered.filter(s => s.nome.toLowerCase().includes(DOM.filterClient.value.toLowerCase()));
-  if (DOM.filterProduct.value) filtered = filtered.filter(s => s.produto.toLowerCase().includes(DOM.filterProduct.value.toLowerCase()));
-  
-  if (DOM.filterStatus.value === "pago") filtered = filtered.filter(s => s.pago === true);
-  if (DOM.filterStatus.value === "nao-pago") filtered = filtered.filter(s => s.pago === false);
-  
-  if (DOM.filterStart.value) filtered = filtered.filter(s => s.data >= DOM.filterStart.value);
-  if (DOM.filterEnd.value) filtered = filtered.filter(s => s.data <= DOM.filterEnd.value);
-  return filtered;
+// Formata número para moeda BRL
+function fmtBRL(v) {
+  return Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-// === DATA DE HOJE AUTOMÁTICA ===
-function setTodayDate() {
-  if (!DOM.dataInput.value) {
-    const today = new Date().toISOString().split('T')[0];
-    DOM.dataInput.value = today;
+// Toast — notificação discreta no canto da tela
+function toast(msg, type = "success") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className   = "toast show " + type;
+  setTimeout(() => t.classList.remove("show"), 3200);
+}
+
+// Abre/fecha modal
+function openModal(id)  { document.getElementById(id)?.classList.add("open");    }
+function closeModal(id) { document.getElementById(id)?.classList.remove("open"); }
+
+// ──────────────────────────────────────────────────────────────
+// 6. LOGIN / LOGOUT
+// ──────────────────────────────────────────────────────────────
+function doLogin() {
+  const u   = document.getElementById("login-user").value.trim().toLowerCase();
+  const p   = document.getElementById("login-pass").value;
+  const err = document.getElementById("login-error");
+
+  if (USERS[u] && USERS[u].pass === p) {
+    err.style.display = "none";
+    currentUser = { ...USERS[u], key: u };
+
+    document.getElementById("user-avatar").textContent       = USERS[u].initials;
+    document.getElementById("user-name-display").textContent = USERS[u].name;
+    document.getElementById("welcome-name").textContent      = USERS[u].name;
+
+    document.getElementById("login-screen").classList.add("hide");
+    document.getElementById("app").classList.add("visible");
+
+    setTimeout(initApp, 600);
+  } else {
+    err.style.display = "block";
+    document.getElementById("login-pass").value = "";
+    document.getElementById("login-pass").focus();
   }
 }
 
-// === RENDERIZAÇÃO DOS PRODUTOS (adiciona 1 unidade direto) ===
-function renderProducts() {
-  DOM.produtosDiv.innerHTML = "";
-  PRODUCTS.forEach(prod => {
-    const card = document.createElement("div");
-    card.className = "bg-white rounded-xl shadow-lg hover:shadow-2xl transition overflow-hidden";
-    card.innerHTML = `
-      <img src="${prod.imagem}" alt="${prod.nome}" class="w-full h-56 object-cover" />
-      <div class="p-6 text-center">
-        <h4 class="font-bold text-xl mb-3">${prod.nome}</h4>
-        <p class="text-3xl font-bold text-pink-600 mb-4">R$ ${prod.preco.toFixed(2)}</p>
-        <button class="bg-pink-600 text-white w-full py-3 rounded-lg font-semibold hover:bg-pink-700">Adicionar</button>
-      </div>
-    `;
-    card.querySelector("button").addEventListener("click", () => addProductDirectly(prod));
-    DOM.produtosDiv.appendChild(card);
-  });
+function doLogout() {
+  // Para listeners em tempo-real ao sair
+  if (unsubSales)    unsubSales();
+  if (unsubExpenses) unsubExpenses();
+  currentUser = null;
+  document.getElementById("login-screen").classList.remove("hide");
+  document.getElementById("app").classList.remove("visible");
+  document.getElementById("login-user").value = "";
+  document.getElementById("login-pass").value = "";
 }
 
-function addProductDirectly(prod) {
-  const item = currentSale.find(i => i.id === prod.id);
-  if (item) {
-    item.qtd += 1;
-  } else {
-    currentSale.push({ ...prod, qtd: 1 });
+document.getElementById("login-pass").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+document.getElementById("login-user").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("login-pass").focus(); });
+
+// ──────────────────────────────────────────────────────────────
+// 7. INICIALIZAÇÃO
+// ──────────────────────────────────────────────────────────────
+function initApp() {
+  setTodayDate();
+
+  document.getElementById("date-badge").textContent = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+
+  renderProducts();
+  renderCurrentSale();
+
+  // Listeners em tempo real (onSnapshot) — atualizam ao receber mudança do Firebase
+  startRealtimeListeners();
+}
+
+function setTodayDate() {
+  const today = new Date().toISOString().split("T")[0];
+  const fv    = document.getElementById("data");
+  const fd    = document.getElementById("data-despesa");
+  if (fv && !fv.value) fv.value = today;
+  if (fd && !fd.value) fd.value = today;
+}
+
+// ──────────────────────────────────────────────────────────────
+// 8. FIREBASE — LISTENERS EM TEMPO REAL
+//    Qualquer alteração no Firestore reflete instantaneamente
+//    sem precisar recarregar a página.
+// ──────────────────────────────────────────────────────────────
+function startRealtimeListeners() {
+  // Vendas — ordena por timestamp decrescente
+  const qSales = query(collection(db, "sales"), orderBy("timestamp", "desc"));
+  unsubSales = onSnapshot(qSales, snap => {
+    completedSales = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    currentPage = 1;
+    refreshAll();
+  }, err => console.error("Erro listener vendas:", err));
+
+  // Despesas
+  const qExp = query(collection(db, "expenses"), orderBy("timestamp", "desc"));
+  unsubExpenses = onSnapshot(qExp, snap => {
+    currentExpenses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    expensePage = 1;
+    renderExpenseTable();
+    renderExpenseChart();
+    updateFinanceSummary();
+  }, err => console.error("Erro listener despesas:", err));
+}
+
+// Atualiza tudo de uma vez
+function refreshAll() {
+  renderSalesTable();
+  groupByClient();
+  updateFinanceSummary();
+  renderDashboardCharts();
+  renderDashboardRecentes();
+}
+
+// ──────────────────────────────────────────────────────────────
+// 9. NAVEGAÇÃO
+// ──────────────────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll(".content").forEach(c => c.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+
+  const pg = document.getElementById("page-" + id);
+  if (pg) { pg.classList.add("active"); pg.classList.add("fade-in"); }
+  if (btn) btn.classList.add("active");
+
+  const titles = {
+    "dashboard":  "Dashboard",
+    "nova-venda": "Nova Venda",
+    "historico":  "Histórico de Vendas",
+    "dividas":    "Dívidas",
+    "despesas":   "Despesas",
+  };
+  document.getElementById("page-title").textContent = titles[id] || id;
+
+  if (id === "nova-venda") setTodayDate();
+  if (id === "dashboard")  { renderDashboardCharts(); renderDashboardRecentes(); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// 10. CATÁLOGO DE PRODUTOS
+// ──────────────────────────────────────────────────────────────
+function renderProducts() {
+  const grid = document.getElementById("produtos-grid");
+  if (!grid) return;
+  grid.innerHTML = PRODUCTS.map(p => `
+    <div class="produto-card" id="pc-${p.id}" onclick="addProductDirectly('${p.id}')">
+      ${p.imagem
+        ? `<img src="${p.imagem}" alt="${p.nome}" class="produto-img"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+           <div class="produto-emoji-fallback" style="display:none">${p.emoji}</div>`
+        : `<div class="produto-emoji-fallback">${p.emoji}</div>`
+      }
+      <div class="produto-info">
+        <div class="produto-nome">${p.nome}</div>
+        <div class="produto-preco">${fmtBRL(p.preco)}</div>
+        <button class="produto-add-btn" onclick="event.stopPropagation();addProductDirectly('${p.id}')">
+          Adicionar
+        </button>
+      </div>
+    </div>`
+  ).join("");
+}
+
+function addProductDirectly(id) {
+  const prod = PRODUCTS.find(p => p.id === id);
+  if (!prod) return;
+  const item = currentSale.find(i => i.id === id);
+  if (item) item.qtd++;
+  else currentSale.push({ ...prod, qtd: 1 });
+  document.getElementById("pc-" + id)?.classList.add("selected");
+  renderCurrentSale();
+}
+
+// ──────────────────────────────────────────────────────────────
+// 11. CARRINHO
+// ──────────────────────────────────────────────────────────────
+function renderCurrentSale() {
+  const div = document.getElementById("carrinho");
+  if (!div) return;
+
+  if (!currentSale.length) {
+    div.innerHTML = `<div class="carrinho-vazio">Nenhum item adicionado ainda...</div>`;
+    return;
+  }
+
+  const total = currentSale.reduce((s, i) => s + i.qtd * i.preco, 0);
+  div.innerHTML = currentSale.map((item, idx) => `
+    <div class="carrinho-item">
+      <span>${item.emoji} ${item.nome}</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="changeQty(${idx},-1)">−</button>
+          <span class="qty-num">${item.qtd}</span>
+          <button class="qty-btn" onclick="changeQty(${idx},1)">+</button>
+        </div>
+        <span style="min-width:70px;text-align:right;color:var(--caramel);font-weight:500">
+          ${fmtBRL(item.qtd * item.preco)}
+        </span>
+        <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="removeItem(${idx})">✕</button>
+      </div>
+    </div>`
+  ).join("") + `
+    <div class="carrinho-total">
+      <span>Total</span>
+      <span>${fmtBRL(total)}</span>
+    </div>`;
+}
+
+function changeQty(idx, delta) {
+  currentSale[idx].qtd += delta;
+  if (currentSale[idx].qtd <= 0) {
+    const id = currentSale[idx].id;
+    currentSale.splice(idx, 1);
+    // Remove highlight do card de produto
+    if (!currentSale.find(i => i.id === id))
+      document.getElementById("pc-" + id)?.classList.remove("selected");
   }
   renderCurrentSale();
 }
 
-// === CARRINHO ===
-function renderCurrentSale() {
-  if (currentSale.length === 0) {
-    DOM.vendaAtualDiv.innerHTML = `<p class="text-center text-gray-500 py-12 text-xl">Nenhum item adicionado ainda</p>`;
-    return;
-  }
-  const total = currentSale.reduce((s, i) => s + i.qtd * i.preco, 0);
-  DOM.vendaAtualDiv.innerHTML = `
-    <h3 class="text-2xl font-bold mb-6 text-pink-700">Carrinho Atual</h3>
-    ${currentSale.map((item, index) => `
-      <div class="flex justify-between items-center bg-white p-5 rounded-lg shadow mb-4">
-        <div>
-          <p class="font-semibold text-lg">${item.nome}</p>
-          <p class="text-gray-600">${item.qtd} × R$ ${item.preco.toFixed(2)} = R$ ${(item.qtd * item.preco).toFixed(2)}</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button class="minus bg-red-500 text-white w-10 h-10 rounded-full text-xl" data-index="${index}">–</button>
-          <span class="text-2xl font-bold w-12 text-center">${item.qtd}</span>
-          <button class="plus bg-green-500 text-white w-10 h-10 rounded-full text-xl" data-index="${index}">+</button>
-          <button class="remove bg-gray-700 text-white px-5 py-2 rounded" data-index="${index}">Remover</button>
-        </div>
-      </div>
-    `).join("")}
-    <div class="text-right mt-8 border-t-4 border-pink-600 pt-6">
-      <p class="text-3xl font-bold text-pink-600">Total: R$ ${total.toFixed(2)}</p>
-    </div>
-  `;
-  DOM.vendaAtualDiv.querySelectorAll(".plus").forEach(btn => btn.onclick = () => { currentSale[btn.dataset.index].qtd++; renderCurrentSale(); });
-  DOM.vendaAtualDiv.querySelectorAll(".minus").forEach(btn => btn.onclick = () => { if (currentSale[btn.dataset.index].qtd > 1) currentSale[btn.dataset.index].qtd--; renderCurrentSale(); });
-  DOM.vendaAtualDiv.querySelectorAll(".remove").forEach(btn => btn.onclick = () => { currentSale.splice(btn.dataset.index, 1); renderCurrentSale(); });
+function removeItem(idx) {
+  const id = currentSale[idx].id;
+  currentSale.splice(idx, 1);
+  if (!currentSale.find(i => i.id === id))
+    document.getElementById("pc-" + id)?.classList.remove("selected");
+  renderCurrentSale();
 }
 
-// === REGISTRO DE VENDA (com data corrigida e atualização do histórico) ===
-DOM.formSale.addEventListener("submit", async e => {
+function limparCarrinho() {
+  currentSale = [];
+  document.querySelectorAll(".produto-card").forEach(c => c.classList.remove("selected"));
+  renderCurrentSale();
+}
+
+// ──────────────────────────────────────────────────────────────
+// 12. REGISTRO DE VENDA
+// ──────────────────────────────────────────────────────────────
+document.getElementById("form-venda")?.addEventListener("submit", async e => {
   e.preventDefault();
-  if (currentSale.length === 0) return alert("Adicione pelo menos um item!");
-  const nome = DOM.formSale.querySelector("#nome").value.trim();
-  const telefone = DOM.formSale.querySelector("#telefone").value.trim() || "N/A";
-  const data = DOM.formSale.querySelector("#data").value;
-  if (!nome || !data) return alert("Preencha os campos obrigatórios!");
+  if (!currentSale.length) { toast("Adicione pelo menos um item!", "error"); return; }
+
+  const nome      = document.getElementById("nome").value.trim();
+  const telefone  = document.getElementById("telefone").value.trim() || "N/A";
+  const data      = document.getElementById("data").value;
+  const pagamento = document.getElementById("pagamento")?.value || "Pix";
+  if (!nome || !data) { toast("Preencha nome e data!", "error"); return; }
+
   const formattedDate = toLocalISODate(data);
-  const total = currentSale.reduce((s, i) => s + i.qtd * i.preco, 0);
+  const total         = currentSale.reduce((s, i) => s + i.qtd * i.preco, 0);
 
-  DOM.modalVendaDetalhes.innerHTML = `
-    <p><strong>Cliente:</strong> ${nome}</p>
-    <p><strong>Telefone:</strong> ${telefone}</p>
-    <p><strong>Data:</strong> ${formatarDataBrasileira(data)}</p>
-    <ul class="list-disc pl-6 mt-4">${currentSale.map(i => `<li>${i.nome} × ${i.qtd} = R$ ${(i.qtd * i.preco).toFixed(2)}</li>`).join("")}</ul>
-    <p class="text-2xl font-bold mt-6">Total: R$ ${total.toFixed(2)}</p>
-  `;
-  DOM.modalVenda.classList.add("active");
+  // Preenche modal de confirmação
+  document.getElementById("modal-venda-detalhes").innerHTML = `
+    <div class="modal-row"><span>👤 Cliente</span><span>${nome}</span></div>
+    <div class="modal-row"><span>📱 Telefone</span><span>${telefone}</span></div>
+    <div class="modal-row"><span>📅 Data</span><span>${fmtDate(formattedDate)}</span></div>
+    <div class="modal-row"><span>💳 Pagamento</span><span>${pagamento}</span></div>
+    ${currentSale.map(i =>
+      `<div class="modal-row"><span>${i.emoji} ${i.nome} × ${i.qtd}</span><span>${fmtBRL(i.qtd * i.preco)}</span></div>`
+    ).join("")}
+    <div class="modal-row"><span>Total</span><span>${fmtBRL(total)}</span></div>`;
 
-  DOM.confirmarVenda.onclick = async () => {
+  openModal("modal-confirmacao");
+
+  document.getElementById("confirmar-venda").onclick = async () => {
     try {
-      await Promise.all(currentSale.map(item => addDoc(collection(db, "sales"), {
-        nome, telefone, produto: item.nome, qtd: item.qtd, total: item.qtd * item.preco,
-        data: formattedDate, pago: false, timestamp: new Date()
-      })));
+      // Cada linha do carrinho vira um documento no Firebase
+      await Promise.all(currentSale.map(item =>
+        addDoc(collection(db, "sales"), {
+          nome, telefone, pagamento,
+          produto:   item.nome,
+          emoji:     item.emoji,
+          qtd:       item.qtd,
+          total:     item.qtd * item.preco,
+          data:      formattedDate,
+          pago:      pagamento !== "Fiado",
+          timestamp: new Date(),
+        })
+      ));
 
-      alert("Venda registrada com sucesso!");
+      toast("Venda registrada! 🎉", "success");
       currentSale = [];
-      DOM.formSale.reset();
+      document.getElementById("form-venda").reset();
       setTodayDate();
       renderCurrentSale();
-      await loadSales(); // Atualiza o histórico na hora
-      DOM.modalVenda.classList.remove("active");
+      document.querySelectorAll(".produto-card").forEach(c => c.classList.remove("selected"));
+      closeModal("modal-confirmacao");
+      // onSnapshot atualiza automaticamente — não precisa loadSales()
     } catch (err) {
       console.error(err);
-      alert("Erro ao registrar venda.");
+      toast("Erro ao salvar venda.", "error");
     }
   };
 
-  DOM.cancelarVenda.onclick = () => DOM.modalVenda.classList.remove("active");
+  document.getElementById("cancelar-venda").onclick = () => closeModal("modal-confirmacao");
 });
 
-// === DESPESAS ===
-DOM.formExpense.addEventListener("submit", async e => {
-  e.preventDefault();
-  const categoria = DOM.formExpense.querySelector("#categoria-despesa").value;
-  const descricao = DOM.formExpense.querySelector("#descricao-despesa").value.trim();
-  const valor = parseFloat(DOM.formExpense.querySelector("#valor-despesa").value);
-  const data = DOM.formExpense.querySelector("#data-despesa").value;
-  if (!categoria || !descricao || !valor || !data) return alert("Preencha todos os campos!");
-  const formattedDate = toLocalISODate(data);
+// ──────────────────────────────────────────────────────────────
+// 13. HISTÓRICO DE VENDAS
+// ──────────────────────────────────────────────────────────────
+function getFilteredSales() {
+  const fc = document.getElementById("filtro-cliente")?.value.toLowerCase()   || "";
+  const fi = document.getElementById("filtro-data-inicio")?.value             || "";
+  const ff = document.getElementById("filtro-data-fim")?.value                || "";
+  const fs = document.getElementById("filtro-status")?.value                  || "";
+  const fp = document.getElementById("filtro-produto")?.value.toLowerCase()   || "";
 
-  DOM.modalDespesaDetalhes.innerHTML = `
-    <p><strong>Categoria:</strong> ${categoria}</p>
-    <p><strong>Descrição:</strong> ${descricao}</p>
-    <p><strong>Valor:</strong> R$ ${valor.toFixed(2)}</p>
-    <p><strong>Data:</strong> ${formatarDataBrasileira(data)}</p>
-  `;
-  DOM.modalDespesa.classList.add("active");
-
-  DOM.confirmarDespesa.onclick = async () => {
-    try {
-      await addDoc(collection(db, "expenses"), { categoria, descricao, valor, data: formattedDate, timestamp: new Date() });
-      alert("Despesa registrada com sucesso!");
-      DOM.formExpense.reset();
-      await loadExpenses();
-      DOM.modalDespesa.classList.remove("active");
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao registrar despesa.");
-    }
-  };
-  DOM.cancelarDespesa.onclick = () => DOM.modalDespesa.classList.remove("active");
-});
-
-async function loadSales() {
-  const snapshot = await getDocs(collection(db, "sales"));
-  completedSales = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-  currentPage = 1;
-  renderSalesTable();
-  groupByClient();
-  updateFinanceSummary();
-}
-
-async function loadExpenses() {
-  const snapshot = await getDocs(collection(db, "expenses"));
-  currentExpenses = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-  expensePage = 1;
-  renderExpenseTable();
-  renderExpenseChart();
-  updateFinanceSummary();
-}
-
-function renderExpenseChart() {
-  const canvas = document.getElementById("expense-chart");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const categories = [...new Set(currentExpenses.map(e => e.categoria))];
-  const data = categories.map(cat => currentExpenses.filter(e => e.categoria === cat).reduce((s, e) => s + Number(e.valor || 0), 0));
-  if (expenseChart) expenseChart.destroy();
-  expenseChart = new Chart(ctx, {
-    type: "doughnut",
-    data: { labels: categories, datasets: [{ data, backgroundColor: ["#f472b6", "#60a5fa", "#34d399", "#fbbf24", "#f87171"] }] },
-    options: { responsive: true, plugins: { legend: { position: "top" }, title: { display: true, text: "Despesas por Categoria" } } },
+  return completedSales.filter(s => {
+    if (fc && !s.nome.toLowerCase().includes(fc))         return false;
+    if (fp && !s.produto.toLowerCase().includes(fp))      return false;
+    if (fs === "pago"    &&  s.pago === false)             return false;
+    if (fs === "nao-pago" && s.pago !== false)             return false;
+    if (fi && s.data < fi)                                return false;
+    if (ff && s.data > ff)                                return false;
+    return true;
   });
-}
-
-async function removeSale(id) {
-  if (!confirm("Tem certeza que deseja remover esta venda?")) return;
-  await deleteDoc(doc(db, "sales", id));
-  await loadSales();
 }
 
 function renderSalesTable() {
-  let filtered = getFilteredSales();
-  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-  const start = (currentPage - 1) * itemsPerPage;
-  const paginated = filtered.slice(start, start + itemsPerPage);
-  DOM.pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
-  DOM.prevPage.disabled = currentPage === 1;
-  DOM.nextPage.disabled = currentPage === totalPages;
+  const filtered    = getFilteredSales();
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start       = (currentPage - 1) * itemsPerPage;
+  const paginated   = filtered.slice(start, start + itemsPerPage);
 
-  const header = `<div class="grid grid-cols-8 gap-4 bg-gray-800 text-white p-3 rounded-t-lg font-semibold">
-    <div>Cliente</div><div>Produto</div><div>Qtd</div><div>Data</div><div>Telefone</div><div>Status</div><div>Valor</div><div>Ações</div>
-  </div>`;
+  const pi = document.getElementById("page-info");
+  const pp = document.getElementById("prev-page");
+  const np = document.getElementById("next-page");
+  if (pi) pi.textContent  = `Pág. ${currentPage} / ${totalPages} (${filtered.length})`;
+  if (pp) pp.disabled     = currentPage === 1;
+  if (np) np.disabled     = currentPage === totalPages;
+
+  const div = document.getElementById("compradores");
+  if (!div) return;
+
+  if (!paginated.length) {
+    div.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Data</th><th>Tel.</th><th>Pgto</th><th>Status</th><th>Valor</th><th>Ações</th></tr></thead>
+      <tbody><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--chocolate2)">Nenhuma venda encontrada.</td></tr></tbody>
+    </table></div>`;
+    return;
+  }
 
   const rows = paginated.map(s => `
-    <div class="grid grid-cols-8 gap-4 p-3 ${s.pago ? "bg-green-50" : "bg-red-50"} border-b">
-      <div>${s.nome}</div>
-      <div>${s.produto}</div>
-      <div>${s.qtd}</div>
-      <div>${formatarDataBrasileira(s.data)}</div>
-      <div>${s.telefone}</div>
-      <div>
-        <label class="status-toggle">
-          <input type="checkbox" data-id="${s.id}" ${s.pago ? "checked" : ""} />
-          <span class="toggle-slider ${s.pago ? "paid" : "unpaid"}"></span>
+    <tr>
+      <td><strong>${s.nome}</strong></td>
+      <td>${s.emoji || ""} ${s.produto}</td>
+      <td>${s.qtd}</td>
+      <td>${fmtDate(s.data)}</td>
+      <td style="color:var(--chocolate2)">${s.telefone}</td>
+      <td>${s.pagamento || "—"}</td>
+      <td>
+        <label class="toggle" onclick="togglePago('${s.id}', ${!s.pago})">
+          <div class="toggle-track ${s.pago ? "on" : ""}"><div class="toggle-thumb"></div></div>
+          <span class="badge ${s.pago ? "pago" : "nao-pago"}">${s.pago ? "Pago" : "Não Pago"}</span>
         </label>
-      </div>
-      <div>R$ ${Number(s.total).toFixed(2)}</div>
-      <div><button class="remover-venda-btn bg-red-600 text-white px-3 py-1 rounded" data-id="${s.id}">Remover</button></div>
-    </div>
-  `).join("");
+      </td>
+      <td style="color:var(--caramel);font-weight:500">${fmtBRL(s.total)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeSale('${s.id}')">🗑</button></td>
+    </tr>`
+  ).join("");
 
-  DOM.compradoresDiv.innerHTML = header + (rows || "<div class='p-6 text-center col-span-8'>Nenhuma venda encontrada</div>");
-
-  DOM.compradoresDiv.querySelectorAll("input[type=checkbox]").forEach(cb => {
-    cb.addEventListener("change", async e => {
-      const id = e.target.dataset.id;
-      const pago = e.target.checked;
-      await updateDoc(doc(db, "sales", id), { pago });
-      completedSales.find(s => s.id === id).pago = pago;
-      renderSalesTable();
-      groupByClient();
-      updateFinanceSummary();
-    });
-  });
-
-  DOM.compradoresDiv.querySelectorAll(".remover-venda-btn").forEach(btn => btn.addEventListener("click", () => removeSale(btn.dataset.id)));
+  div.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Cliente</th><th>Produto</th><th>Qtd</th><th>Data</th><th>Tel.</th><th>Pgto</th><th>Status</th><th>Valor</th><th>Ações</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
 }
 
+async function togglePago(id, novoPago) {
+  try {
+    await updateDoc(doc(db, "sales", id), { pago: novoPago });
+    // onSnapshot cuida do refresh automático
+    toast(novoPago ? "Marcado como pago ✓" : "Marcado como não pago", novoPago ? "success" : "error");
+  } catch (err) {
+    console.error(err);
+    toast("Erro ao atualizar status.", "error");
+  }
+}
+
+async function removeSale(id) {
+  if (!confirm("Remover esta venda?")) return;
+  try {
+    await deleteDoc(doc(db, "sales", id));
+    toast("Venda removida.", "success");
+  } catch (err) {
+    console.error(err);
+    toast("Erro ao remover.", "error");
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// 14. DÍVIDAS — AGRUPAMENTO AVANÇADO POR CLIENTE
+//     Agrupa por cliente com total de itens, valor, status
+//     e permite marcar TODAS as vendas de um cliente como pagas
+// ──────────────────────────────────────────────────────────────
 function groupByClient() {
-  let filtered = getFilteredSales();
-  const grouped = filtered.reduce((acc, sale) => {
-    const key = sale.nome;
-    if (!acc[key]) acc[key] = { quantidade: 0, total: 0, telefone: sale.telefone, allPaid: true };
-    acc[key].quantidade += sale.qtd;
-    acc[key].total += sale.total;
-    acc[key].allPaid = acc[key].allPaid && sale.pago;
+  const fc = document.getElementById("filtro-cliente-debts")?.value.toLowerCase() || "";
+  const fs = document.getElementById("filtro-status-debts")?.value                || "";
+
+  let filtered = [...completedSales];
+  if (fc) filtered = filtered.filter(s => s.nome.toLowerCase().includes(fc));
+
+  // Agrupa
+  const grouped = filtered.reduce((acc, s) => {
+    if (!acc[s.nome]) acc[s.nome] = {
+      nome: s.nome, telefone: s.telefone,
+      qtdItens: 0, total: 0,
+      totalPago: 0, totalAberto: 0,
+      vendas: [], allPaid: true,
+    };
+    acc[s.nome].qtdItens   += Number(s.qtd || 1);
+    acc[s.nome].total      += Number(s.total || 0);
+    if (s.pago) acc[s.nome].totalPago   += Number(s.total || 0);
+    else        acc[s.nome].totalAberto += Number(s.total || 0);
+    acc[s.nome].vendas.push(s);
+    if (!s.pago) acc[s.nome].allPaid = false;
     return acc;
   }, {});
 
-  const header = `<div class="grid grid-cols-5 gap-4 bg-gray-800 text-white p-3 rounded-t-lg font-semibold">
-    <div>Cliente</div><div>Telefone</div><div>Qtd Total</div><div>Valor Total</div><div>Status</div>
-  </div>`;
+  let entries = Object.values(grouped);
+  if (fs === "nao-pago") entries = entries.filter(c => !c.allPaid);
+  if (fs === "pago")     entries = entries.filter(c =>  c.allPaid);
 
-  const rows = Object.entries(grouped).map(([nome, data]) => `
-    <div class="grid grid-cols-5 gap-4 p-3 ${data.allPaid ? "bg-green-50" : "bg-red-50"} border-b">
-      <div>${nome}</div>
-      <div>${data.telefone}</div>
-      <div>${data.quantidade}</div>
-      <div>R$ ${data.total.toFixed(2)}</div>
-      <div>
-        <label class="status-toggle">
-          <input type="checkbox" data-client="${nome}" ${data.allPaid ? "checked" : ""} />
-          <span class="toggle-slider ${data.allPaid ? "paid" : "unpaid"}"></span>
+  // Ordena por maior dívida
+  entries.sort((a, b) => b.totalAberto - a.totalAberto);
+
+  const div = document.getElementById("client-debts");
+  if (!div) return;
+
+  if (!entries.length) {
+    div.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:var(--verde)">🎉 Nenhum cliente em aberto!</div>`;
+    return;
+  }
+
+  const rows = entries.map(c => `
+    <tr>
+      <td><strong>${c.nome}</strong></td>
+      <td style="color:var(--chocolate2)">${c.telefone || "—"}</td>
+      <td>${c.qtdItens}</td>
+      <td style="color:var(--verde);font-weight:500">${fmtBRL(c.totalPago)}</td>
+      <td style="color:var(--vermelho);font-weight:500">${fmtBRL(c.totalAberto)}</td>
+      <td style="font-weight:500">${fmtBRL(c.total)}</td>
+      <td>
+        <label class="toggle" onclick="toggleClientePago('${c.nome}', ${c.allPaid})">
+          <div class="toggle-track ${c.allPaid ? "on" : ""}"><div class="toggle-thumb"></div></div>
+          <span class="badge ${c.allPaid ? "pago" : "nao-pago"}">${c.allPaid ? "Tudo Pago" : "Em Aberto"}</span>
         </label>
-      </div>
-    </div>
-  `).join("");
+      </td>
+    </tr>`
+  ).join("");
 
-  DOM.clientDebtsDiv.innerHTML = header + (rows || "<div class='p-6 text-center col-span-5'>Nenhum cliente encontrado</div>");
+  div.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Cliente</th><th>Tel.</th><th>Itens</th><th>Recebido</th><th>Em Aberto</th><th>Total</th><th>Status</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
 
-  DOM.clientDebtsDiv.querySelectorAll("input[type=checkbox]").forEach(cb => {
-    cb.addEventListener("change", async e => {
-      const clientName = e.target.dataset.client;
-      const pago = e.target.checked;
-      const salesToUpdate = completedSales.filter(s => s.nome === clientName);
-      await Promise.all(salesToUpdate.map(s => updateDoc(doc(db, "sales", s.id), { pago })));
-      salesToUpdate.forEach(s => s.pago = pago);
-      renderSalesTable();
-      groupByClient();
-      updateFinanceSummary();
-    });
+// Marca/desmarca TODAS as vendas de um cliente
+async function toggleClientePago(nome, atualAllPaid) {
+  const novoPago  = !atualAllPaid;
+  const toUpdate  = completedSales.filter(s => s.nome === nome);
+  try {
+    await Promise.all(toUpdate.map(s => updateDoc(doc(db, "sales", s.id), { pago: novoPago })));
+    toast(novoPago ? `${nome}: tudo pago ✓` : `${nome}: marcado como em aberto`, novoPago ? "success" : "error");
+  } catch (err) {
+    console.error(err);
+    toast("Erro ao atualizar.", "error");
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// 15. DESPESAS
+// ──────────────────────────────────────────────────────────────
+document.getElementById("form-despesa")?.addEventListener("submit", async e => {
+  e.preventDefault();
+  const categoria = document.getElementById("categoria-despesa").value;
+  const descricao = document.getElementById("descricao-despesa").value.trim();
+  const valor     = parseFloat(document.getElementById("valor-despesa").value);
+  const data      = document.getElementById("data-despesa").value;
+
+  if (!categoria || !descricao || !valor || !data) { toast("Preencha todos os campos!", "error"); return; }
+
+  const formattedDate = toLocalISODate(data);
+
+  document.getElementById("modal-despesa-detalhes").innerHTML = `
+    <div class="modal-row"><span>📂 Categoria</span><span>${categoria}</span></div>
+    <div class="modal-row"><span>📝 Descrição</span><span>${descricao}</span></div>
+    <div class="modal-row"><span>📅 Data</span><span>${fmtDate(formattedDate)}</span></div>
+    <div class="modal-row"><span>💰 Valor</span><span>${fmtBRL(valor)}</span></div>`;
+
+  openModal("modal-confirmacao-despesa");
+
+  document.getElementById("confirmar-despesa").onclick = async () => {
+    try {
+      await addDoc(collection(db, "expenses"), {
+        categoria, descricao, valor, data: formattedDate, timestamp: new Date(),
+      });
+      toast("Despesa registrada!", "success");
+      document.getElementById("form-despesa").reset();
+      closeModal("modal-confirmacao-despesa");
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao salvar despesa.", "error");
+    }
+  };
+
+  document.getElementById("cancelar-despesa").onclick = () => closeModal("modal-confirmacao-despesa");
+});
+
+async function removeExpense(id) {
+  if (!confirm("Remover esta despesa?")) return;
+  try {
+    await deleteDoc(doc(db, "expenses", id));
+    toast("Despesa removida.", "success");
+  } catch (err) {
+    console.error(err);
+    toast("Erro ao remover.", "error");
+  }
+}
+
+function getFilteredExpenses() {
+  const fc = document.getElementById("filtro-despesa-categoria")?.value.toLowerCase() || "";
+  const fd = document.getElementById("filtro-despesa-descricao")?.value.toLowerCase() || "";
+  const fi = document.getElementById("filtro-despesa-data-inicio")?.value             || "";
+  const ff = document.getElementById("filtro-despesa-data-fim")?.value                || "";
+
+  return currentExpenses.filter(e => {
+    if (fc && !e.categoria.toLowerCase().includes(fc)) return false;
+    if (fd && !e.descricao.toLowerCase().includes(fd)) return false;
+    if (fi && e.data < fi)                             return false;
+    if (ff && e.data > ff)                             return false;
+    return true;
   });
 }
 
 function renderExpenseTable() {
-  let filtered = currentExpenses;
-  if (DOM.filterECategoria.value) filtered = filtered.filter(e => e.categoria.toLowerCase().includes(DOM.filterECategoria.value.toLowerCase()));
-  if (DOM.filterEDescricao.value) filtered = filtered.filter(e => e.descricao.toLowerCase().includes(DOM.filterEDescricao.value.toLowerCase()));
-  if (DOM.filterEStart.value) filtered = filtered.filter(e => e.data >= DOM.filterEStart.value);
-  if (DOM.filterEEnd.value) filtered = filtered.filter(e => e.data <= DOM.filterEEnd.value);
-
+  const filtered   = getFilteredExpenses();
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-  const start = (expensePage - 1) * itemsPerPage;
-  const paginated = filtered.slice(start, start + itemsPerPage);
+  if (expensePage > totalPages) expensePage = totalPages;
+  const start      = (expensePage - 1) * itemsPerPage;
+  const paginated  = filtered.slice(start, start + itemsPerPage);
 
-  DOM.expensePageInfo.textContent = `Página ${expensePage} de ${totalPages}`;
-  DOM.prevExpensePage.disabled = expensePage === 1;
-  DOM.nextExpensePage.disabled = expensePage === totalPages;
+  const pi = document.getElementById("expense-page-info");
+  const pp = document.getElementById("prev-expense-page");
+  const np = document.getElementById("next-expense-page");
+  if (pi) pi.textContent = `Pág. ${expensePage} / ${totalPages} (${filtered.length})`;
+  if (pp) pp.disabled    = expensePage === 1;
+  if (np) np.disabled    = expensePage === totalPages;
 
-  const header = `<div class="grid grid-cols-4 gap-4 bg-gray-800 text-white p-3 rounded-t-lg font-semibold">
-    <div>Categoria</div><div>Descrição</div><div>Valor</div><div>Data</div>
-  </div>`;
+  const div = document.getElementById("despesas");
+  if (!div) return;
+
+  const catIcon = { Uber:"🚗", Materiais:"🥚", Outros:"📌", Ingredientes:"🥚", Embalagens:"📦", Transporte:"🚗", Equipamentos:"🔧" };
 
   const rows = paginated.map(e => `
-    <div class="grid grid-cols-4 gap-4 p-3 bg-white border-b">
-      <div>${e.categoria}</div>
-      <div>${e.descricao}</div>
-      <div>R$ ${Number(e.valor).toFixed(2)}</div>
-      <div>${formatarDataBrasileira(e.data)}</div>
-    </div>
-  `).join("");
+    <tr>
+      <td>${catIcon[e.categoria] || "📌"} ${e.categoria}</td>
+      <td>${e.descricao}</td>
+      <td style="color:var(--vermelho);font-weight:500">${fmtBRL(e.valor)}</td>
+      <td>${fmtDate(e.data)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeExpense('${e.id}')">🗑</button></td>
+    </tr>`
+  ).join("") || `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--chocolate2)">Nenhuma despesa encontrada.</td></tr>`;
 
-  DOM.despesasDiv.innerHTML = header + (rows || "<div class='p-6 text-center col-span-4'>Nenhuma despesa encontrada</div>");
+  div.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Data</th><th>Ações</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
 }
 
-function getFilteredExpenses() {
-  let filtered = [...currentExpenses];
-  if (DOM.filterEStart.value) filtered = filtered.filter(e => e.data >= DOM.filterEStart.value);
-  if (DOM.filterEEnd.value) filtered = filtered.filter(e => e.data <= DOM.filterEEnd.value);
-  return filtered;
+// ──────────────────────────────────────────────────────────────
+// 16. GRÁFICO DE DESPESAS (doughnut refinado)
+// ──────────────────────────────────────────────────────────────
+function renderExpenseChart() {
+  const canvas = document.getElementById("expense-chart");
+  if (!canvas) return;
+
+  const categories = [...new Set(currentExpenses.map(e => e.categoria))];
+  const data       = categories.map(cat =>
+    currentExpenses.filter(e => e.categoria === cat).reduce((s, e) => s + Number(e.valor || 0), 0)
+  );
+
+  if (expenseChart) expenseChart.destroy();
+
+  if (!data.length) return;
+
+  expenseChart = new Chart(canvas.getContext("2d"), {
+    type: "doughnut",
+    data: {
+      labels: categories,
+      datasets: [{
+        data,
+        backgroundColor: ["#e91e8c","#f06292","#c0156f","#ad1457","#880e4f","#f48fb1"],
+        borderWidth: 3,
+        borderColor: "#fff9f4",
+        hoverBorderWidth: 4,
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      cutout: "65%",
+      plugins: {
+        legend: {
+          position: "right",
+          labels: { font: { size: 12, family: "DM Sans" }, padding: 16, boxWidth: 14 },
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${fmtBRL(ctx.parsed)}`,
+          },
+        },
+      },
+    },
+  });
 }
 
+// ──────────────────────────────────────────────────────────────
+// 17. DASHBOARD — KPIs, GRÁFICOS E TABELA RECENTES
+// ──────────────────────────────────────────────────────────────
 function updateFinanceSummary() {
-  const sales = getFilteredSales();
-  const expenses = getFilteredExpenses();
-  const totalVendas = sales.reduce((s, v) => s + Number(v.total || 0), 0);
+  const sales    = completedSales;
+  const expenses = currentExpenses;
+
+  const totalVendas   = sales.reduce((s, v) => s + Number(v.total || 0), 0);
   const totalRecebido = sales.filter(v => v.pago).reduce((s, v) => s + Number(v.total || 0), 0);
-  const totalAberto = totalVendas - totalRecebido;
+  const totalAberto   = totalVendas - totalRecebido;
   const totalDespesas = expenses.reduce((s, e) => s + Number(e.valor || 0), 0);
-  const fmt = v => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  DOM.sumVendas.textContent = fmt(totalVendas);
-  DOM.sumRecebido.textContent = fmt(totalRecebido);
-  DOM.sumAberto.textContent = fmt(totalAberto);
-  DOM.sumDespesas.textContent = fmt(totalDespesas);
+  const qtdAberto     = sales.filter(v => !v.pago).length;
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set("sum-vendas",          fmtBRL(totalVendas));
+  set("sum-recebido",        fmtBRL(totalRecebido));
+  set("sum-aberto",          fmtBRL(totalAberto));
+  set("sum-despesas",        fmtBRL(totalDespesas));
+  set("kpi-total",           fmtBRL(totalVendas));
+  set("kpi-pago",            fmtBRL(totalRecebido));
+  set("kpi-aberto",          fmtBRL(totalAberto));
+  set("kpi-despesas",        fmtBRL(totalDespesas));
+  set("kpi-qtd-vendas",      sales.length + " vendas");
+  set("kpi-qtd-aberto",      qtdAberto + " pendentes");
 }
 
-DOM.exportData.addEventListener("click", () => {
+function renderDashboardRecentes() {
+  const tb = document.getElementById("tbody-recentes");
+  if (!tb) return;
+  const rec = completedSales.slice(0, 6);
+  tb.innerHTML = rec.length
+    ? rec.map(v => `
+        <tr>
+          <td><strong>${v.nome}</strong></td>
+          <td>${v.emoji || ""} ${v.produto}</td>
+          <td>${fmtDate(v.data)}</td>
+          <td style="color:var(--caramel);font-weight:500">${fmtBRL(v.total)}</td>
+          <td><span class="badge ${v.pago ? "pago" : "nao-pago"}">${v.pago ? "Pago" : "Não Pago"}</span></td>
+        </tr>`
+      ).join("")
+    : `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--chocolate2)">Nenhuma venda ainda.</td></tr>`;
+}
+
+function renderDashboardCharts() {
+  // Gráfico 1: Vendas por produto (barras horizontais)
+  const c1 = document.getElementById("chart-produtos");
+  if (c1) {
+    const prodCount = {};
+    PRODUCTS.forEach(p => prodCount[p.nome] = 0);
+    completedSales.forEach(s => { prodCount[s.produto] = (prodCount[s.produto] || 0) + Number(s.qtd || 1); });
+
+    const labels = Object.keys(prodCount).filter(k => prodCount[k] > 0);
+    const data   = labels.map(l => prodCount[l]);
+
+    if (prodChart) prodChart.destroy();
+    prodChart = new Chart(c1.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Unidades Vendidas",
+          data,
+          backgroundColor: "rgba(233,30,140,0.75)",
+          borderColor:      "#e91e8c",
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: "rgba(233,30,140,0.08)" }, ticks: { font: { size: 11 } } },
+          y: { grid: { display: false },                ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+  }
+
+  // Gráfico 2: Despesas por categoria
+  renderExpenseChart();
+  // (reutiliza a função, mas aqui o canvas é chart-despesas-cat no dashboard)
+  const c2 = document.getElementById("chart-despesas-cat");
+  if (c2) {
+    const cats = {};
+    currentExpenses.forEach(d => cats[d.categoria] = (cats[d.categoria] || 0) + Number(d.valor || 0));
+    const labels = Object.keys(cats);
+    const data   = labels.map(l => cats[l]);
+    const existChart = Chart.getChart(c2);
+    if (existChart) existChart.destroy();
+    if (data.length) {
+      new Chart(c2.getContext("2d"), {
+        type: "doughnut",
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: ["#e91e8c","#f06292","#c0156f","#ad1457","#880e4f","#f48fb1"],
+            borderWidth: 3, borderColor: "#fff9f4", hoverOffset: 8,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: "60%",
+          plugins: {
+            legend: { position: "right", labels: { font: { size: 11 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmtBRL(ctx.parsed)}` } },
+          },
+        },
+      });
+    }
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// 18. EXPORTAÇÃO EXCEL (SheetJS) e JSON
+// ──────────────────────────────────────────────────────────────
+function exportarVendas() {
   const data = completedSales.map(s => ({
-    Cliente: s.nome, Produto: s.produto, Quantidade: s.qtd, Data: s.data, Telefone: s.telefone,
-    Pago: s.pago ? "Sim" : "Não", Valor: s.total,
+    Cliente:    s.nome,
+    Produto:    s.produto,
+    Quantidade: s.qtd,
+    Data:       fmtDate(s.data),
+    Telefone:   s.telefone,
+    Pagamento:  s.pagamento || "—",
+    Pago:       s.pago ? "Sim" : "Não",
+    Valor:      Number(s.total || 0),
   }));
-  if (!data.length) return alert("Nenhum dado para exportar.");
+  if (!data.length) { toast("Nenhum dado para exportar.", "error"); return; }
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Vendas");
-  XLSX.writeFile(wb, "vendas.xlsx");
-});
-
-const debouncedUpdate = debounce(() => {
-  renderSalesTable();
-  groupByClient();
-  updateFinanceSummary();
-  renderExpenseTable();
-}, 300);
-
-[DOM.filterClient, DOM.filterStart, DOM.filterEnd, DOM.filterStatus, DOM.filterProduct,
- DOM.filterClientDebts, DOM.filterStatusDebts, DOM.filterECategoria, DOM.filterEDescricao,
- DOM.filterEStart, DOM.filterEEnd].forEach(el => el?.addEventListener("input", debouncedUpdate));
-
-DOM.prevPage.onclick = () => { if (currentPage > 1) { currentPage--; renderSalesTable(); } };
-DOM.nextPage.onclick = () => { currentPage++; renderSalesTable(); };
-DOM.prevExpensePage.onclick = () => { if (expensePage > 1) { expensePage--; renderExpenseTable(); } };
-DOM.nextExpensePage.onclick = () => { expensePage++; renderExpenseTable(); };
-
-function activateTab(tabId) {
-  DOM.tabContents.forEach(c => c.classList.toggle("hidden", c.id !== tabId));
-  DOM.tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === tabId));
-  if (tabId === "new-sale") {
-    setTodayDate();
-  }
+  XLSX.writeFile(wb, "vendas_docecl.xlsx");
+  toast("Exportado para Excel! ✓", "success");
 }
-DOM.tabs.forEach(tab => tab.addEventListener("click", () => activateTab(tab.dataset.tab)));
 
-// Inicialização
-renderProducts();
-renderCurrentSale();
-setTodayDate();
-Promise.all([loadSales(), loadExpenses()]).then(() => {
-  updateFinanceSummary();
-  activateTab("new-sale");
+function exportarDespesas() {
+  const data = currentExpenses.map(e => ({
+    Categoria:  e.categoria,
+    Descrição:  e.descricao,
+    Valor:      Number(e.valor || 0),
+    Data:       fmtDate(e.data),
+  }));
+  if (!data.length) { toast("Nenhum dado para exportar.", "error"); return; }
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Despesas");
+  XLSX.writeFile(wb, "despesas_docecl.xlsx");
+  toast("Exportado para Excel! ✓", "success");
+}
+
+// Importação JSON/XLSX (botões de import)
+document.getElementById("import-data-btn")?.addEventListener("click", () => {
+  document.getElementById("import-data")?.click();
 });
+document.getElementById("import-data")?.addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      let rows = [];
+      if (file.name.endsWith(".json")) {
+        rows = JSON.parse(ev.target.result);
+      } else {
+        const wb  = XLSX.read(ev.target.result, { type: "binary" });
+        const ws  = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws);
+      }
+      let count = 0;
+      for (const r of rows) {
+        await addDoc(collection(db, "sales"), {
+          nome:      r.Cliente || r.nome || "—",
+          telefone:  r.Telefone || r.telefone || "N/A",
+          produto:   r.Produto || r.produto || "—",
+          qtd:       Number(r.Quantidade || r.qtd || 1),
+          total:     Number(r.Valor || r.total || 0),
+          data:      r.Data ? r.Data.split("/").reverse().join("-") : toLocalISODate(new Date().toISOString().split("T")[0]),
+          pago:      (r.Pago || r.pago) === "Sim" || (r.Pago || r.pago) === true,
+          pagamento: r.Pagamento || "—",
+          timestamp: new Date(),
+        });
+        count++;
+      }
+      toast(`${count} vendas importadas!`, "success");
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao importar arquivo.", "error");
+    }
+  };
+  file.name.endsWith(".json") ? reader.readAsText(file) : reader.readAsBinaryString(file);
+  e.target.value = "";
+});
+
+document.getElementById("import-expenses-btn")?.addEventListener("click", () => {
+  document.getElementById("import-expenses")?.click();
+});
+document.getElementById("import-expenses")?.addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      let rows = [];
+      if (file.name.endsWith(".json")) rows = JSON.parse(ev.target.result);
+      else {
+        const wb = XLSX.read(ev.target.result, { type: "binary" });
+        rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      }
+      for (const r of rows) {
+        await addDoc(collection(db, "expenses"), {
+          categoria:  r.Categoria  || r.categoria || "Outros",
+          descricao:  r["Descrição"] || r.descricao || "—",
+          valor:      Number(r.Valor || r.valor || 0),
+          data:       r.Data ? r.Data.split("/").reverse().join("-") : toLocalISODate(new Date().toISOString().split("T")[0]),
+          timestamp:  new Date(),
+        });
+      }
+      toast("Despesas importadas!", "success");
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao importar.", "error");
+    }
+  };
+  file.name.endsWith(".json") ? reader.readAsText(file) : reader.readAsBinaryString(file);
+  e.target.value = "";
+});
+
+// ──────────────────────────────────────────────────────────────
+// 19. DEBOUNCE NOS FILTROS (300ms — evita chamadas excessivas)
+// ──────────────────────────────────────────────────────────────
+const debouncedSales = debounce(() => { currentPage = 1; renderSalesTable(); groupByClient(); updateFinanceSummary(); }, 300);
+const debouncedExp   = debounce(() => { expensePage = 1; renderExpenseTable(); }, 300);
+
+[
+  "filtro-cliente", "filtro-data-inicio", "filtro-data-fim",
+  "filtro-status",  "filtro-produto",
+].forEach(id => document.getElementById(id)?.addEventListener("input", debouncedSales));
+
+[
+  "filtro-cliente-debts", "filtro-status-debts",
+].forEach(id => document.getElementById(id)?.addEventListener("input", () => groupByClient()));
+
+[
+  "filtro-despesa-categoria", "filtro-despesa-descricao",
+  "filtro-despesa-data-inicio", "filtro-despesa-data-fim",
+].forEach(id => document.getElementById(id)?.addEventListener("input", debouncedExp));
+
+// ──────────────────────────────────────────────────────────────
+// 20. PAGINAÇÃO
+// ──────────────────────────────────────────────────────────────
+document.getElementById("prev-page")?.addEventListener("click", () => {
+  if (currentPage > 1) { currentPage--; renderSalesTable(); }
+});
+document.getElementById("next-page")?.addEventListener("click", () => {
+  currentPage++; renderSalesTable();
+});
+document.getElementById("prev-expense-page")?.addEventListener("click", () => {
+  if (expensePage > 1) { expensePage--; renderExpenseTable(); }
+});
+document.getElementById("next-expense-page")?.addEventListener("click", () => {
+  expensePage++; renderExpenseTable();
+});
+
+// ──────────────────────────────────────────────────────────────
+// 21. FECHA MODAL CLICANDO FORA
+// ──────────────────────────────────────────────────────────────
+document.querySelectorAll(".modal-overlay").forEach(m => {
+  m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); });
+});
+
+// Exportar (botões HTML)
+document.getElementById("export-data")?.addEventListener("click", exportarVendas);
+document.getElementById("export-expenses")?.addEventListener("click", exportarDespesas);
+
+// ──────────────────────────────────────────────────────────────
+// 22. EXPÕE FUNÇÕES AO ESCOPO GLOBAL
+//     Necessário pois type="module" tem escopo isolado,
+//     mas o HTML usa onclick="...". Aqui fazemos a ponte.
+// ──────────────────────────────────────────────────────────────
+window.doLogin             = doLogin;
+window.doLogout            = doLogout;
+window.showPage            = showPage;
+window.limparCarrinho      = limparCarrinho;
+window.addProductDirectly  = addProductDirectly;
+window.changeQty           = changeQty;
+window.removeItem          = removeItem;
+window.togglePago          = togglePago;
+window.toggleClientePago   = toggleClientePago;
+window.removeSale          = removeSale;
+window.removeExpense       = removeExpense;
+window.exportarVendas      = exportarVendas;
+window.exportarDespesas    = exportarDespesas;
