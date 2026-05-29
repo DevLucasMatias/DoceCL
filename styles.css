@@ -1,38 +1,38 @@
 /* ═══════════════════════════════════════════════════════════════
    DoceCL — Estilos
    Arquivo: styles.css
-   Paleta: Rosa pink + Sidebar escura (fiel ao original)
+   Paleta: Rosa pink + Sidebar escura
+   + Estilo do botão "Copiar Mensagem" na aba de Dívidas
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── RESET E VARIÁVEIS ───────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  /* ── Paleta principal (rosa / escuro — fiel ao original) ── */
-  --pink:          #e91e8c;      /* rosa vibrante primário */
-  --pink2:         #c0156f;      /* rosa escuro / hover */
-  --pink3:         #f06292;      /* rosa claro */
+  --pink:          #e91e8c;
+  --pink2:         #c0156f;
+  --pink3:         #f06292;
   --pink-light:    rgba(233,30,140,0.1);
   --pink-glow:     rgba(233,30,140,0.3);
 
-  --dark:          #1a1f2e;      /* sidebar fundo */
-  --dark2:         #252b3b;      /* sidebar item hover */
-  --dark3:         #2f3650;      /* sidebar item ativo */
+  --dark:          #1a1f2e;
+  --dark2:         #252b3b;
+  --dark3:         #2f3650;
 
-  --bg:            #f4f6fa;      /* fundo do app */
-  --bg2:           #ffffff;      /* fundo dos cards */
-  --bg3:           #f9fafc;      /* fundo input */
+  --bg:            #f4f6fa;
+  --bg2:           #ffffff;
+  --bg3:           #f9fafc;
 
-  --text:          #1a1f2e;      /* texto principal */
-  --text2:         #5a6380;      /* texto secundário */
-  --text3:         #9aa0b5;      /* texto placeholder */
+  --text:          #1a1f2e;
+  --text2:         #5a6380;
+  --text3:         #9aa0b5;
 
-  --border:        #e8ecf4;      /* bordas suaves */
+  --border:        #e8ecf4;
   --border2:       #d0d6e8;
 
-  --verde:         #22c55e;      /* status pago */
+  --verde:         #22c55e;
   --verde-bg:      #dcfce7;
-  --vermelho:      #ef4444;      /* status erro */
+  --vermelho:      #ef4444;
   --vermelho-bg:   #fee2e2;
   --amarelo:       #f59e0b;
 
@@ -362,7 +362,7 @@ tbody tr:nth-child(even) td { background: var(--bg3); }
   background: #fff;
 }
 
-/* ─── GRID DE PRODUTOS (Nova Venda) ─────────────────────────── */
+/* ─── GRID DE PRODUTOS ──────────────────────────────────────── */
 .produtos-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -386,13 +386,10 @@ tbody tr:nth-child(even) td { background: var(--bg3); }
   box-shadow: 0 0 0 3px rgba(233,30,140,0.15);
 }
 
-/* Imagem real do produto */
 .produto-img {
   width: 100%; height: 90px;
-  object-fit: cover;
-  display: block;
+  object-fit: cover; display: block;
 }
-/* Fallback emoji (quando não há imagem) */
 .produto-emoji-fallback {
   width: 100%; height: 90px;
   display: flex; align-items: center; justify-content: center;
@@ -411,7 +408,7 @@ tbody tr:nth-child(even) td { background: var(--bg3); }
 }
 .produto-add-btn:hover { background: var(--pink2); }
 
-/* ─── HEADER DO APP com imagem de fundo (igual original) ─────── */
+/* ─── HEADER DO APP ─────────────────────────────────────────── */
 .app-header {
   background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
               url('doce.jpg') center/cover no-repeat;
@@ -578,6 +575,72 @@ tbody tr:nth-child(even) td { background: var(--bg3); }
   font-size: 20px; font-weight: 400; color: var(--vermelho);
 }
 
+/* ─── INSTRUÇÃO DA ABA DÍVIDAS ──────────────────────────────── */
+.msg-instrucao {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: linear-gradient(135deg, rgba(233,30,140,0.07), rgba(233,30,140,0.03));
+  border: 1px solid rgba(233,30,140,0.2);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+.msg-instrucao strong { color: var(--text); }
+.msg-instrucao em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--pink);
+}
+.msg-instrucao-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ─── BOTÃO COPIAR MENSAGEM ─────────────────────────────────── */
+/*
+  Fica na última coluna da tabela de Dívidas.
+  Destaque visual em rosa para chamar atenção sem poluir.
+*/
+.btn-copiar-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  background: linear-gradient(135deg, rgba(233,30,140,0.12), rgba(233,30,140,0.06));
+  border: 1.5px solid rgba(233,30,140,0.3);
+  border-radius: 8px;
+  color: var(--pink2);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.btn-copiar-msg:hover {
+  background: linear-gradient(135deg, rgba(233,30,140,0.22), rgba(233,30,140,0.12));
+  border-color: var(--pink);
+  color: var(--pink);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(233,30,140,0.2);
+}
+.btn-copiar-msg:active {
+  transform: translateY(0);
+}
+.btn-copiar-msg:disabled {
+  background: var(--verde-bg);
+  border-color: var(--verde);
+  color: #15803d;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
 /* ─── ANIMAÇÕES ─────────────────────────────────────────────── */
 .fade-in { animation: fadeIn .35s ease; }
 @keyframes fadeIn {
@@ -604,7 +667,11 @@ tbody tr:nth-child(even) td { background: var(--bg3); }
   .sidebar .brand, .sidebar .sub,
   .nav-item span:not(.nav-icon),
   .nav-section-label, .user-name, .user-role { display: none; }
-  .content      { padding: 16px; }
-  .page-header  { padding: 14px 16px; }
-  .kpi-grid     { grid-template-columns: 1fr 1fr; }
+  .content     { padding: 16px; }
+  .page-header { padding: 14px 16px; }
+  .kpi-grid    { grid-template-columns: 1fr 1fr; }
+
+  /* No mobile, o botão de copiar fica menor */
+  .btn-copiar-msg { padding: 6px 9px; font-size: 11px; }
+  .msg-instrucao  { font-size: 12px; }
 }

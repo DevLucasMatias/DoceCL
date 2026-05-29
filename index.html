@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DoceCL — Painel de Gestão</title>
+<title>Painel de Gestão</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
@@ -11,7 +11,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <!-- SheetJS (Excel) -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-<!-- Firebase (ESM via script type=module no script.js) -->
 <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
@@ -21,9 +20,8 @@
   <div class="login-bg"><div class="login-dots"></div></div>
   <div class="login-card">
     <div class="login-logo">
-      <div class="icon"></div>
       <h1>DoceCL</h1>
-      <p>PAINEL DE GESTÃO · LUCAS & CLEICE</p>
+      <p>PAINEL DE GESTÃO </p>
     </div>
     <div class="login-error" id="login-error">Usuário ou senha incorretos.</div>
     <div class="login-field">
@@ -31,11 +29,10 @@
       <input type="text" id="login-user" placeholder="Digite seu usuário" autocomplete="username"/>
     </div>
     <div class="login-field">
-      <label>Senha</label>F
+      <label>Senha</label>
       <input type="password" id="login-pass" placeholder="Digite sua senha" autocomplete="current-password"/>
     </div>
     <button class="btn-login" onclick="doLogin()">Entrar no Painel →</button>
- <!--  <p class="login-hint">Padrão: lucas / docecl123 &nbsp;|&nbsp; cleice / docecl123</p> -->
   </div>
 </div>
 
@@ -45,7 +42,7 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="brand"> DoceCL</div>
+      <div class="brand">DoceCL</div>
       <div class="sub">GESTÃO DE VENDAS</div>
     </div>
     <nav class="sidebar-nav">
@@ -85,7 +82,6 @@
 
   <!-- MAIN -->
   <main class="main">
-    <!-- Header com imagem de fundo (igual ao original) -->
     <div class="app-header">
       <h1> Brigadeiros Gourmet</h1>
       <p>Lucas &amp; Cleice</p>
@@ -101,12 +97,11 @@
       <div class="welcome-banner">
         <div class="welcome-text">
           <h3>Bem-vindo, <span id="welcome-name">Lucas e Cleice</span>! </h3>
-          <p>Aqui está o resumo do seu negócio de doces.</p>
+          
         </div>
         <div class="welcome-emoji"></div>
       </div>
 
-      <!-- KPIs -->
       <div class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-icon pink">💰</div>
@@ -134,7 +129,6 @@
         </div>
       </div>
 
-      <!-- Gráficos -->
       <div class="two-col">
         <div class="card">
           <div class="card-title"><span>📈</span> Vendas por Produto</div>
@@ -146,7 +140,6 @@
         </div>
       </div>
 
-      <!-- Últimas vendas -->
       <div class="card">
         <div class="card-title"><span>🕐</span> Últimas Vendas</div>
         <div class="table-wrap">
@@ -159,12 +152,12 @@
         </div>
       </div>
 
-      <!-- Resumo financeiro (compatível com original) -->
-      <div class="kpi-grid" style="margin-top:20px;display:none">
-        <div><p id="sum-vendas"></p></div>
-        <div><p id="sum-recebido"></p></div>
-        <div><p id="sum-aberto"></p></div>
-        <div><p id="sum-despesas"></p></div>
+      <!-- IDs mantidos para compatibilidade com script.js -->
+      <div style="display:none">
+        <span id="sum-vendas"></span>
+        <span id="sum-recebido"></span>
+        <span id="sum-aberto"></span>
+        <span id="sum-despesas"></span>
       </div>
     </div>
 
@@ -224,18 +217,18 @@
     <div id="page-historico" class="content">
       <h3 class="section-title">📋 Histórico de Vendas</h3>
       <div class="filtros">
-        <input type="text"  id="filtro-cliente"      placeholder="🔍 Cliente"/>
-        <input type="date"  id="filtro-data-inicio"/>
-        <input type="date"  id="filtro-data-fim"/>
-        <select             id="filtro-status">
+        <input type="text" id="filtro-cliente"     placeholder="🔍 Cliente"/>
+        <input type="date" id="filtro-data-inicio"/>
+        <input type="date" id="filtro-data-fim"/>
+        <select            id="filtro-status">
           <option value="">Todos os Status</option>
           <option value="pago">Pago</option>
           <option value="nao-pago">Não Pago</option>
         </select>
-        <input type="text"  id="filtro-produto"      placeholder=" Produto"/>
-        <button id="export-data"      class="btn btn-secondary btn-sm">⬇ Excel</button>
-        <input  type="file" id="import-data"          accept=".json,.xlsx" class="hidden"/>
-        <button id="import-data-btn"  class="btn btn-secondary btn-sm">⬆ Importar</button>
+        <input type="text" id="filtro-produto"     placeholder="🔍 Produto"/>
+        <button id="export-data"     class="btn btn-secondary btn-sm">⬇ Excel</button>
+        <input  type="file" id="import-data" accept=".json,.xlsx" class="hidden"/>
+        <button id="import-data-btn" class="btn btn-secondary btn-sm">⬆ Importar</button>
       </div>
       <div class="card">
         <div id="compradores"></div>
@@ -250,6 +243,8 @@
     <!-- ═══ DÍVIDAS ═══ -->
     <div id="page-dividas" class="content">
       <h3 class="section-title">💸 Dívidas por Cliente</h3>
+    
+
       <div class="filtros">
         <input type="text" id="filtro-cliente-debts" placeholder="🔍 Cliente"/>
         <select            id="filtro-status-debts">
@@ -309,7 +304,6 @@
         <button id="import-expenses-btn" class="btn btn-secondary btn-sm">⬆ Importar</button>
       </div>
 
-      <!-- Gráfico despesas -->
       <div class="card" style="margin-bottom:20px">
         <div class="card-title"><span>📊</span> Despesas por Categoria</div>
         <div class="chart-wrap"><canvas id="expense-chart"></canvas></div>
@@ -354,9 +348,6 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- Script principal (module para Firebase ESM) -->
 <script type="module" src="script.js"></script>
-
-
 </body>
 </html>
